@@ -2,6 +2,15 @@ program min;
 
 {$APPTYPE CONSOLE}
 
+// defines to configure freepascal
+{$IFDEF FPC}
+  {$MODE Delphi}
+
+  {$IFNDEF WINDOWS}
+    {$LINKLIB c}
+  {$ENDIF}
+{$ENDIF}
+
 uses
   SysUtils,
   Classes,
@@ -33,20 +42,23 @@ type
     size: integer;
     values: array of single;
   end;
+  PNumArray = ^TNumArray;
 
 //makes a new delphi array (class) structure from lua
 function lua_newarray(L: Plua_State): Integer; cdecl;
 var
   n: integer;
   nbytes: integer;
-  a: TNumArray;
+  a: PNumArray;
 begin
   n:=round(lua_tonumber(L,1));
   writeln('DEBUG: '+inttostr(n));
   nbytes:=sizeof(TNumArray) + (n-1) * sizeof(single);
-  a:=TNumArray(lua_newuserdata(L, nbytes));
-  SetLength(a.values, n);
-  a.size:=n;
+  writeln('DEBUG: '+inttostr(nbytes));
+  a:=lua_newuserdata(L, nbytes); //assign memory for object to lua
+  a^:=TNumArray.Create(); //create the object
+  SetLength(a^.values, n);
+  a^.size:=n;
   result:=1;
 end;
 
@@ -57,7 +69,7 @@ var
   index: integer;
   value: single;
 begin
-  a:=TNumArray(lua_touserdata(L, 1));
+  a:=PNumArray(lua_touserdata(L, 1))^;
   index:= Round(lua_tonumber(L, 2));
   value:= lua_tonumber(L, 3);
   //do some error checking here....
@@ -71,7 +83,7 @@ var
   a: TNumArray;
   index: integer;
 begin
-  a:=TNumArray(lua_touserdata(L, 1));
+  a:=PNumArray(lua_touserdata(L, 1))^;
   index:= Round(lua_tonumber(L, 2));
   // do some error checking here....
   lua_pushnumber(L, a.values[index-1]);
@@ -83,14 +95,14 @@ function lua_getsize(L: Plua_State): Integer; cdecl;
 var
   a: TNumArray;
 begin
-  a:=TNumArray(lua_touserdata(L, 1));
+  a:=PNumArray(lua_touserdata(L, 1))^;
   lua_pushnumber(L, a.size);
   result:=1;
 end;
 
 //structure for delphi array (class) to lua
 const
-  arraylib: array [0..4] of lual_reg = (
+  arraylib: array [0..4] of luaL_reg = (
    (name:'new';func:lua_newarray),
    (name:'set';func:lua_setarray),
    (name:'get';func:lua_getarray),

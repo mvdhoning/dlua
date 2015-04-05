@@ -8,5 +8,5 @@ for i=1,1000 do
   array.set(testa, i, 1/i)
 end
 print ("print element 10 from array")
-print (array.get(testa, 10)) 
+print (array.get(testa, 10))  
 print (1/10)
