@@ -44,6 +44,8 @@ type
     FText : string;
   public
     procedure dosomething(t: string);
+    procedure settext(t: string);
+    procedure showtext();
     property text : string read ftext write ftext;
   end;
   PMyObject = ^TMyObject;
@@ -58,6 +60,17 @@ var
 procedure tmyobject.dosomething(t: string);
 begin
   ftext:=t;
+  writeln('DELPHI: '+ftext); //show debug info
+end;
+
+procedure tmyobject.settext(t: string);
+begin
+  ftext:=t;
+  //writeln('DELPHI: '+ftext); //show debug info
+end;
+
+procedure tmyobject.showtext();
+begin
   writeln('DELPHI: '+ftext); //show debug info
 end;
 
@@ -106,10 +119,56 @@ begin
   Result:= 0; // no return values
 end;
 
+// dosomething is a method receiving only 1 parameter of type String
+function lua_myobject_settext(L: Plua_state): Integer; cdecl;
+var
+  p: pointer;
+  o: TMyObject;
+begin
+  writeln('lua called settext');
+  p:=nil;
+  p:= lua_touserdata(L, 1);
+  if (p = nil) then writeln('no object?') else
+    begin
+     o:= PMyObject(p)^;
+     o.Settext(lua_tostring(L, 2));
+    end;
+  Result:= 0; // no return values
+end;
+
+// dosomething is a method receiving only 1 parameter of type String
+function lua_myobject_showtext(L: Plua_state): Integer; cdecl;
+var
+  p: pointer;
+  o: TMyObject;
+begin
+  writeln('lua called showttext');
+  p:=nil;
+  p:= lua_touserdata(L, 1);
+  if (p = nil) then writeln('no object?') else
+    begin
+     o:= PMyObject(p)^;
+     o.ShowText();
+    end;
+  Result:= 0; // no return values
+end;
+
 // delete __GC
 function lua_myobject_delete(L: Plua_state): Integer; cdecl;
+var
+  p: pointer;
+  o: TMyObject;
 begin
   writeln('lua called __gc');
+
+  p:=nil;
+  p:= lua_touserdata(L, 1);
+  if (p = nil) then writeln('no object?') else
+    begin
+     o:= PMyObject(p)^;
+     o.Free(); //free up object
+    end;
+
   result:= 0; // no return values
 end;
 
@@ -120,10 +179,10 @@ const
    (name:'test2';func:lua_myobject_dosomething),
    (name:nil;func:nil)
    );
-  meta_methods: array [0..3] of luaL_reg = (
+  meta_methods: array [0..4] of luaL_reg = (
    (name:'test';func:lua_myobject_dosomething),
-   (name:'test2';func:lua_myobject_dosomething),
-   //(name:'self.test';func:lua_myobject_dosomething),
+   (name:'settext';func:lua_myobject_settext),
+   (name:'showtext';func:lua_myobject_showtext),
    (name:'__gc';func:lua_myobject_delete),
    (name:nil;func:nil)
    );
