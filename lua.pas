@@ -39,8 +39,8 @@ const
 {$ELSE}
   //LUA_NAME = 'lua.dll';
   //LUA_LIB_NAME = 'lualib.dll';
-  LUA_NAME = 'lua52.dll';
-  LUA_LIB_NAME = 'lua52.dll';
+  LUA_NAME = 'lua5.3.0.dll';
+  LUA_LIB_NAME = 'lua5.3.0.dll';
 {$ENDIF}
 
 function LoadLua: Boolean;
@@ -248,7 +248,10 @@ var
 
   //5.0
    lua_setfield: procedure(L: Plua_State; idx: Integer; k: PChar); cdecl;
+
    lua_setglobal: procedure(L : Plua_State; var_ : PChar); cdecl;
+   lua_getglobal: function(L: Plua_State; const name: PChar): Integer; cdecl;
+
    luaL_tolstring    : function (L : Plua_State; idx : integer; var len : size_t) : PAnsiChar; cdecl;
    lua_tolstring   : function (L : Plua_State; idx : integer; len : size_t) : PAnsiChar; cdecl;
    lua_getfield    : procedure(L : Plua_State; idx : integer; k : PAnsiChar); cdecl;
@@ -289,7 +292,7 @@ var
 
 procedure lua_getregistry(L: Plua_State);
 //procedure lua_setglobal(L: Plua_State; const s: PChar);
-procedure lua_getglobal(L: Plua_State; const s: PChar);
+//procedure lua_getglobal(L: Plua_State; const s: PChar);
 
 function isnull(L: Plua_State; n: Integer): Boolean;
 
@@ -403,8 +406,14 @@ type
   end;
   PluaL_reg = ^luaL_reg;
 
+  procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
+
 var
-  luaL_openlib: procedure(L: Plua_State; const libname: PChar; const lr: PluaL_reg; nup: Integer); cdecl;
+  //luaL_openlib: procedure(L: Plua_State; const libname: PChar; const lr: PluaL_reg; nup: Integer); cdecl;
+
+
+
+
   //luaL_openlib: procedure(L: Plua_State; const lr: PluaL_reg; nup: Integer); cdecl;
   //luaL_opennamedlib: procedure(L: Plua_State; const libname: PChar; const lr: PluaL_reg; nup: Integer); cdecl;
   luaL_callmeta: function(L: Plua_State; obj: Integer; const event: PChar): Integer; cdecl;
@@ -436,9 +445,12 @@ var
   //luaL_loadbuffer: function(L: Plua_State; const buff: PChar; size: Integer; const name: PChar): Integer; cdecl;
 
   //5.0
+  luaL_setfuncs: procedure(L: Plua_State; lr: PluaL_Reg; nup: Integer); cdecl;
+
   luaL_newstate: function: Plua_State; cdecl;
   luaL_newmetatable: function(L: Plua_State; const tname: PChar): Integer; cdecl;
   luaL_setmetatable: procedure(L: Plua_State; const tname: PChar); cdecl;
+
   procedure luaL_getmetatable(L : Plua_State; n : PAnsiChar); inline;
    procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
    function lua_tostring(L : Plua_State; i : integer) : PAnsiChar; inline;
@@ -619,6 +631,7 @@ begin
   lua_setfield := nil;
   lua_getfield := nil;
   lua_setglobal := nil;
+  lua_getglobal := nil;
 
   lua_tolstring := nil;
 end;
@@ -669,7 +682,7 @@ begin
     lua_newtable := GetProcAddress(LuaHandle, 'lua_newtable');
     lua_getmetatable := GetProcAddress(LuaHandle, 'lua_getmetatable');
     lua_getmode := GetProcAddress(LuaHandle, 'lua_getmode');
-    lua_getglobals := GetProcAddress(LuaHandle, 'lua_getglobals');
+    //lua_getglobals := GetProcAddress(LuaHandle, 'lua_getglobals');
     lua_settable := GetProcAddress(LuaHandle, 'lua_settable');
     lua_rawset := GetProcAddress(LuaHandle, 'lua_rawset');
     lua_rawseti := GetProcAddress(LuaHandle, 'lua_rawseti');
@@ -702,6 +715,7 @@ begin
     lua_setfield := GetProcAddress(LuaHandle, 'lua_setfield');
     lua_getfield := GetProcAddress(LuaHandle, 'lua_getfield');
     lua_setglobal := GetProcAddress(LuaHandle, 'lua_setglobal');
+    lua_getglobal := GetProcAddress(LuaHandle, 'lua_getglobal');
 
     lua_tolstring := GetProcAddress(LuaHandle, 'lua_tolstring');
   end;
@@ -749,7 +763,8 @@ begin
   luaopen_string := nil;
   luaopen_math := nil;
   luaopen_debug := nil;
-  luaL_openlib := nil;
+  //luaL_openlib := nil;
+
 //  luaL_opennamedlib := nil;
   luaL_callmeta := nil;
   luaL_typerror := nil;
@@ -783,6 +798,8 @@ begin
   luaL_newmetatable := nil;
   luaL_setmetatable := nil;
   luaL_tolstring := nil;
+
+  luaL_setfuncs := nil;
 end;
 
 procedure LoadLuaLibProc;
@@ -795,7 +812,8 @@ begin
     luaopen_string := GetProcAddress(LuaLibHandle, 'luaopen_string');
     luaopen_math := GetProcAddress(LuaLibHandle, 'luaopen_math');
     luaopen_debug := GetProcAddress(LuaLibHandle, 'luaopen_debug');
-    luaL_openlib := GetProcAddress(LuaLibHandle, 'luaL_openlib');
+    //luaL_openlib := GetProcAddress(LuaLibHandle, 'luaL_openlib');
+
 //    luaL_opennamedlib := GetProcAddress(LuaLibHandle, 'luaL_opennamedlib');
     luaL_callmeta := GetProcAddress(LuaLibHandle, 'luaL_callmeta');
     luaL_typerror := GetProcAddress(LuaLibHandle, 'luaL_typerror');
@@ -835,6 +853,8 @@ begin
 
     luaL_tolstring := GetProcAddress(LuaLibHandle,'luaL_tolstring');
 
+    luaL_setfuncs := GetProcAddress(LuaLibHandle,'luaL_setfuncs');
+
     writeln('y');
   end;
 end;
@@ -860,6 +880,31 @@ end;
 function lua_tonumber(L : Plua_State; i : integer) : lua_Number; inline;
 begin
      Result := lua_tonumberx(L,i,nil);
+end;
+
+procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
+begin
+
+  writeln('ol1');
+  (*
+  if n <> nil then begin //if empty then dont call setglobal
+  lua_getglobal(L, n);
+  writeln('ol2');
+  if (lua_isnil(L, -1)) then begin
+    writeln('ol2.1');
+    lua_pop(L, 1);
+    writeln('ol2.2');
+    lua_newtable(L);
+    writeln('ol2.3');
+  end;
+  writeln('ol3');
+  end;
+  *)
+  luaL_setfuncs(L, lr, 0);
+  writeln('ol4');
+  if n <> nil then //if empty then dont call setglobal
+  lua_setglobal(L, n);
+  writeln('ol5');
 end;
 
 function LoadLuaLib: Boolean;
@@ -994,11 +1039,11 @@ end;
 //  lua_settable(L, LUA_GLOBALSINDEX);
 //end;
 
-procedure lua_getglobal(L: Plua_State; const s: PChar);
-begin
-  lua_pushstring(L, s);
-  lua_gettable(L, LUA_GLOBALSINDEX);
-end;
+//procedure lua_getglobal(L: Plua_State; const s: PChar);
+//begin
+//  lua_pushstring(L, s);
+//  lua_gettable(L, LUA_GLOBALSINDEX);
+//end;
 
 function isnull(L: Plua_State; n: Integer): Boolean;
 begin

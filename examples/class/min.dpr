@@ -193,14 +193,18 @@ var
  MethodTable,
  Methods : Integer;
 begin
+  writeln('a');
   luaL_newmetatable(L, PosMetaTaleLuaTMyObject);
   // Metatable.__index = Metatable
+  writeln('b');
   lua_pushvalue(L, -1);
+  writeln('c');
   lua_setfield(L, -2, '__index');
+  writeln('d');
   luaL_register(L, Nil, meta_methods);
-
+  writeln('e');
   luaL_register(L,PosLuaTMyObject, methodslib);
-
+  writeln('f');
   (*
   //http://lua-users.org/wiki/BindingWithMembersAndMethods
   //http://www.pascalgamedevelopment.com/showthread.php?2810-using-Delphi-classes-in-lua-)/page2
