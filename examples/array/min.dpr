@@ -51,6 +51,7 @@ var
   nbytes: integer;
   a: PNumArray;
 begin
+  writeln('1');
   n:=round(lua_tonumber(L,1));
   writeln('DEBUG: '+inttostr(n));
   nbytes:=sizeof(TNumArray) + (n-1) * sizeof(single);
@@ -113,7 +114,7 @@ const
 //bring delphi array (class) to lua
 function luaopen_array(L: Plua_state): boolean;
 begin
-  luaL_openlib(L, 'array', @arraylib[0], 0);
+  luaL_openlib(L, 'array', arraylib, 0);
   result:=true;
 end;
 
@@ -129,22 +130,32 @@ begin
     Exit;
   end;
 
+  WriteLn('load');
   //init lua dll
   LoadLua;
   LoadLuaLib;
+
+  WriteLn('about to open lua');
+
   L := lua_open;
 
+  WriteLn('about to register');
   //register pseudo delphi array (class) in lua
   luaopen_array(L);
 
+  WriteLn('4');
   //Register a delphi procedure/funtion for use in Lua
   lua_register(L, 'print', lua_print);
+
+  WriteLn('5');
 
   //Load a lua script from a buffer
   script:=tstringList.Create;
   script.LoadFromFile(PChar(ParamStr(1)));
   lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
   Script.Free; //clean up
+
+  WriteLn('6');
 
   //Ask Lua to run our little script
   result := 0;
