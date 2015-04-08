@@ -34,24 +34,19 @@ interface
 
 const
 {$IFDEF LINUX}
-  LUA_NAME = 'liblua.so';
-  LUA_LIB_NAME = 'liblualib.so';
+  LUA_NAME = 'liblua.so.5.3.0';
 {$ELSE}
-  //LUA_NAME = 'lua.dll';
-  //LUA_LIB_NAME = 'lualib.dll';
   LUA_NAME = 'lua5.3.0.dll';
-  LUA_LIB_NAME = 'lua5.3.0.dll';
 {$ENDIF}
+
+(*==============================================================================
+    Dynamic loading and unloading of Lua libs
+==============================================================================*)
 
 function LoadLua: Boolean;
 function LoadLuaFrom(FileName: string): Boolean;
 procedure UnLoadLua;
 function LuaLoaded: Boolean;
-
-function LoadLuaLib: Boolean;
-function LoadLuaLibFrom(FileName: string): Boolean;
-procedure UnLoadLuaLib;
-function LuaLibLoaded: Boolean;
 
 (*==============================================================================
     LUA.PAS
@@ -76,22 +71,20 @@ const
  * space (and to reserve some numbers for pseudo-indices).
  *)
 {$IFDEF CPU64}
-LUAI_MAXSTACK         = 1000000;
+  LUAI_MAXSTACK         = 1000000;
 {$ELSE}
-LUAI_MAXSTACK         = 1000000; //C value : 15000
+  LUAI_MAXSTACK         = 1000000; //C value : 15000
 {$ENDIF}
 
-LUAI_FIRSTPSEUDOIDX   = (-LUAI_MAXSTACK - 1000);
+  LUAI_FIRSTPSEUDOIDX   = (-LUAI_MAXSTACK - 1000);
 
 (* pseudo-indices *)
-LUA_REGISTRYINDEX     = LUAI_FIRSTPSEUDOIDX;
+  LUA_REGISTRYINDEX     = LUAI_FIRSTPSEUDOIDX;
 
-  //LUA_REGISTRYINDEX = -10000;
-  LUA_GLOBALSINDEX = -10001;
+  LUA_GLOBALSINDEX = -10001; //TODO: redefine needed
 
-function lua_upvalueindex(I: Integer): Integer;
+//function lua_upvalueindex(I: Integer): Integer; //TODO: needs to be elsewhere?
 
-const
 (* error codes for `lua_load' and `lua_pcall' *)
   LUA_ERRRUN    = 1;
   LUA_ERRFILE   = 2;
@@ -101,7 +94,7 @@ const
   LUA_ERRTHROW  = 6;
 
 type
-  Plua_State = Pointer;
+  Plua_State = Pointer; //TODO: base on type instead of pointer?
 
   lua_CFunction = function(L: Plua_State): Integer; cdecl;
 
@@ -133,7 +126,12 @@ type
 (* Type of Numbers in Lua *)
   lua_Number = Double;
 
+//local lua function
   function lua_open: Plua_State;
+
+//lua api functions
+var
+   lua_absindex:function (L: Plua_State, idx:Integer): Integer; cdecl;
 
 var
 (*
