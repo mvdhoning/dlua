@@ -6,18 +6,7 @@
 ** See Copyright Notice at the end of this file
 *)
 (*
-** Translated to pascal by Lavergne Thomas
-** Notes :
-**    - Pointers type was prefixed with 'P'
-**    - lua_upvalueindex constant was transformed to function
-**    - Warning : You must init lualib if you want to use ref compatiblity
-**        macros.
-** Bugs report :
-**    - thomas.lavergne@laposte.net
-**   In french or in english
-*)
-(*
-** Converted pascal unit from static linking to dynamic loading by M van der Honing
+** Pascal unit from static linking to dynamic loading by M van der Honing
 *)
 unit lua;
 
@@ -51,6 +40,7 @@ function LuaLoaded: Boolean;
 (*==============================================================================
     LUA.PAS
 ==============================================================================*)
+
 type
   size_t = Cardinal;
   Psize_t = ^size_t;
@@ -61,6 +51,23 @@ const
   LUA_VERSION = 'Lua 5.0 (alpha)';
   LUA_COPYRIGHT = 'Copyright (C) 1994-2002 TeCGraf, PUC-Rio';
   LUA_AUTHORS = 'W. Celes, R. Ierusalimschy & L. H. de Figueiredo';
+
+  //lua math operations for lua_arith
+  LUA_OPADD  = 0;       //performs addition (+)
+  LUA_OPSUB  = 0;       //performs subtraction (-)
+  LUA_OPMUL  = 0;       //performs multiplication (*)
+  LUA_OPDIV  = 0;       //performs float division (/)
+  LUA_OPIDIV = 0;       //performs floor division (//)
+  LUA_OPMOD  = 0;       //performs modulo (%)
+  LUA_OPPOW  = 0;       //performs exponentiation (^)
+  LUA_OPUNM  = 0;       //performs mathematical negation (unary -)
+  LUA_OPBNOT = 0;       //performs bitwise negation (~)
+  LUA_OPBAND = 0;       //performs bitwise and (&)
+  LUA_OPBOR  = 0;       //performs bitwise or (|)
+  LUA_OPBXOR = 0;       //performs bitwise exclusive or (~)
+  LUA_OPSHL  = 0;       //performs left shift (<<)
+  LUA_OPSHR  = 0;       //performs right shift (>>)
+
 
 (* option for multiple returns in `lua_pcall' and `lua_call' *)
   LUA_MULTRET = -1;
@@ -131,8 +138,8 @@ type
 
 //lua api functions
 var
-   lua_absindex:function (L: Plua_State, idx:Integer): Integer; cdecl;
-
+   lua_absindex: function (L: Plua_State; idx:Integer): Integer; cdecl;
+   lua_arith: procedure (L: Plua_State; op: Integer);
 var
 (*
 ** state manipulation
@@ -903,40 +910,6 @@ begin
   if n <> nil then //if empty then dont call setglobal
   lua_setglobal(L, n);
   writeln('ol5');
-end;
-
-function LoadLuaLib: Boolean;
-begin
-  if LuaLibHandle = INVALID_MODULE_HANDLE then
-    Result := LoadLuaLibFrom(LUA_LIB_NAME)
-  else
-    Result := True
-end;
-
-function LoadLuaLibFrom(FileName: string): Boolean;
-begin
-  ClearLuaLibProc;
-  LuaLibHandle := OpenLib(PChar(FileName));
-  if LuaLibHandle <> INVALID_MODULE_HANDLE then
-  begin
-    LoadLuaLibProc;
-    Result := True
-  end
-  else
-    Result := False
-end;
-
-procedure UnLoadLuaLib;
-begin
-  if LuaLibHandle <> INVALID_MODULE_HANDLE then
-    FreeLibrary(LuaLibHandle);
-  LuaLibHandle := INVALID_MODULE_HANDLE;
-  ClearLuaLibProc
-end;
-
-function LuaLibLoaded: boolean;
-begin
-  Result := LuaLibHandle <> INVALID_MODULE_HANDLE;
 end;
 
 (*==============================================================================

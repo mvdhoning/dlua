@@ -244,7 +244,7 @@ begin
   writeln('load');
   //init lua dll
   LoadLua;
-  LoadLuaLib;
+
   writeln('about to open state');
   L := lua_open;
   writeln('about to register');
@@ -281,7 +281,7 @@ begin
   //close lua dll
   lua_close(L);
   UnLoadLua;
-  UnLoadLuaLib;
+
 
   Writeln('press [ENTER] key to exit...');
   ReadLn;
