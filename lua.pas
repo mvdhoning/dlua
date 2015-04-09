@@ -48,26 +48,6 @@ type
   PPchar = ^pchar;
 
 const
-  LUA_VERSION = 'Lua 5.0 (alpha)';
-  LUA_COPYRIGHT = 'Copyright (C) 1994-2002 TeCGraf, PUC-Rio';
-  LUA_AUTHORS = 'W. Celes, R. Ierusalimschy & L. H. de Figueiredo';
-
-  //lua math operations for lua_arith
-  LUA_OPADD  = 0;       //performs addition (+)
-  LUA_OPSUB  = 0;       //performs subtraction (-)
-  LUA_OPMUL  = 0;       //performs multiplication (*)
-  LUA_OPDIV  = 0;       //performs float division (/)
-  LUA_OPIDIV = 0;       //performs floor division (//)
-  LUA_OPMOD  = 0;       //performs modulo (%)
-  LUA_OPPOW  = 0;       //performs exponentiation (^)
-  LUA_OPUNM  = 0;       //performs mathematical negation (unary -)
-  LUA_OPBNOT = 0;       //performs bitwise negation (~)
-  LUA_OPBAND = 0;       //performs bitwise and (&)
-  LUA_OPBOR  = 0;       //performs bitwise or (|)
-  LUA_OPBXOR = 0;       //performs bitwise exclusive or (~)
-  LUA_OPSHL  = 0;       //performs left shift (<<)
-  LUA_OPSHR  = 0;       //performs right shift (>>)
-
 
 (* option for multiple returns in `lua_pcall' and `lua_call' *)
   LUA_MULTRET = -1;
@@ -103,14 +83,6 @@ const
 type
   Plua_State = Pointer; //TODO: base on type instead of pointer?
 
-  lua_CFunction = function(L: Plua_State): Integer; cdecl;
-
-(*
-** functions that read blocks when loading Lua chunk
-*)
-type
-  lua_Chunkreader = function(L: Plua_State; ud: Pointer; size: PInteger): PChar;
-
 (*
 ** basic types
 *)
@@ -129,103 +101,134 @@ const
 (* minimum Lua stack available to a C function *)
   LUA_MINSTACK = 20;
 
+//lua types
 type
-(* Type of Numbers in Lua *)
   lua_Number = Double;
+  lua_Integer = Integer; //TODO: check double check
+  //Type for C functions registered with Lua
+  lua_CFunction = function(L: Plua_State): Integer; cdecl;
+  //Type for continuation functions
+  lua_KFunction = function(L: Plua_State; status: Integer; ctx: Integer): Integer; cdecl;
+  //Type for functions that read/write blocks when loading/dumping Lua chunks
+  lua_Reader = function(L: Plua_State; ud: Pointer; size: size_t): PChar;
+  lua_Writer = function(L: Plua_State; const p: Pointer; sz: size_t; ud: Pointer): Integer;
+//lua const
+const
+  LUA_OPADD       = 0 ; // ORDER TM, ORDER OP
+  LUA_OPSUB       = 1 ;
+  LUA_OPMUL       = 2 ;
+  LUA_OPMOD       = 3 ;
+  LUA_OPPOW       = 4 ;
+  LUA_OPDIV       = 5 ;
+  LUA_OPIDIV      = 6 ;
+  LUA_OPBAND      = 7 ;
+  LUA_OPBOR       = 8 ;
+  LUA_OPBXOR      = 9 ;
+  LUA_OPSHL       = 10;
+  LUA_OPSHR       = 11;
+  LUA_OPUNM       = 12;
+  LUA_OPBNOT      = 13;
 
-//local lua function
+  LUA_OPEQ        = 0 ;
+  LUA_OPLT        = 1 ;
+  LUA_OPLE        = 2 ;
+
+//local lua functions
   function lua_open: Plua_State;
 
 //lua api functions
 var
-   lua_absindex: function (L: Plua_State; idx:Integer): Integer; cdecl;
-   lua_arith: procedure (L: Plua_State; op: Integer);
-var
-(*
-** state manipulation
-*)
-  //lua_open: function: Plua_state; cdecl;
-  lua_close: procedure(L: Plua_State); cdecl;
-  lua_newthread: function(L: Plua_State): Plua_State; cdecl;
-  lua_closethread: procedure(L: Plua_State; thread: Plua_State); cdecl;
+  //state manipulation
+  //lua_newstate:function (f: lua_Alloc; ud: Pointer):Plua_State; cdecl; //TODO: implement lua_Alloc
+  lua_close:procedure (L: Plua_State); cdecl;
+  lua_newthread:function (L: Plua_State): Plua_State; cdecl;
 
-  lua_atpanic: function(L: Plua_State; panicf: lua_CFunction): lua_CFunction; cdecl;
+  lua_atpanic:function (L: Plua_State; panicf: lua_CFunction): lua_CFunction; cdecl;
 
-(*
-** basic stack manipulation
-*)
-  lua_gettop: function(L: Plua_State): Integer; cdecl;
-  lua_settop: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_pushvalue: procedure(L: Plua_State; Index: Integer); cdecl;
-  lua_remove: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_insert: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_replace: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_checkstack: function(L: Plua_State; size: Integer): LongBool; cdecl;
+  lua_version:function (L: Plua_State): lua_Number; cdecl; //TODO: might be Plua_Number
 
-(*
-** access functions (stack -> C)
-*)
-  lua_isnumber: function(L: Plua_State; index: Integer): LongBool; cdecl;
-  lua_isstring: function(L: Plua_State; index: Integer): LongBool; cdecl;
-  lua_iscfunction: function(L: Plua_State; index: Integer): LongBool; cdecl;
-  lua_type: function(L: Plua_State; index: Integer): Integer; cdecl;
-  lua_typename: function(L: Plua_State; ltype: Integer): PChar; cdecl;
+  //basic stack manipulation
+  lua_absindex:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_gettop:function (L: Plua_State): Integer; cdecl;
+  lua_settop:procedure (L: Plua_State; idx: Integer); cdecl;
+  lua_pushvalue:procedure (L: Plua_State; idx: Integer); cdecl;
+  lua_rotate:procedure (L: Plua_State; idx: Integer; n: Integer); cdecl;
+  lua_copy:procedure (L: Plua_State; fromidx: Integer; toidx: Integer); cdecl;
+  lua_checkstack:function (L: Plua_State; n: Integer): Integer; cdecl;
 
-  lua_equal: function(L: Plua_State; index1, index2: Integer): LongBool; cdecl;
-  lua_rawequal: function(L: Plua_State; index1, index2: Integer): LongBool; cdecl;
-  lua_lessthan: function(L: Plua_State; index1, index2: Integer): LongBool; cdecl;
+  lua_xmove:procedure (afrom: Plua_State; ato: Plua_State; n: Integer); cdecl; //TODO: better var names
 
-  //lua_tonumber: function(L: Plua_State; index: Integer): lua_Number; cdecl;
-  lua_toboolean: function(L: Plua_State; index: Integer): LongBool; cdecl;
-  //lua_tostring: function(L: Plua_State; index: Integer): PChar; cdecl;
-  lua_strlen: function(L: Plua_State; index: Integer): size_t; cdecl;
-  lua_tocfunction: function(L: Plua_State; index: Integer): lua_CFunction; cdecl;
-  lua_touserdata: function(L: Plua_State; index: Integer): Pointer; cdecl;
-  lua_topointer: function(L: Plua_State; index: Integer): Pointer; cdecl;
+  //access functions (stack -> C)
+  lua_isnumber:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_isstring:function (L: Plua_State; idx: Integer): boolean; cdecl;
+  lua_iscfunction:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_isinteger:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_isuserdata:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_type:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_typename:function (L: Plua_State; tp: Integer): Pchar; cdecl;
 
-(*
-** push functions (C -> stack)
-*)
-  lua_pushnil: procedure(L: Plua_State); cdecl;
-  lua_pushnumber: procedure(L: Plua_State; n: lua_Number); cdecl;
-  lua_pushlstring: procedure(L: Plua_State; const s: PChar; len: size_t); cdecl;
-  lua_pushstring: procedure(L: Plua_State; const s: PChar); cdecl;
-  lua_pushvfstring: function(L: Plua_State; const fmt: PChar; argp: Pointer): PChar; cdecl;
-  lua_pushfstring: function(L: Plua_State; const fmt: PChar; arg: array of Pointer): PChar; cdecl;
-  lua_pushcclosure: procedure(L: Plua_State; fn: lua_CFunction; n: Integer); cdecl;
-  lua_pushboolean: procedure(L: Plua_State; b: LongBool); cdecl;
-  lua_pushlightuserdata: procedure(L: Plua_State; p: Pointer); cdecl;
+  lua_tonumberx:function (L: Plua_State; idx: Integer; isnum: PInteger): lua_Number; cdecl;
+  lua_tointegerx:function (L: Plua_State; idx: Integer; isnum: Pinteger): lua_Integer; cdecl;
+  lua_toboolean:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_tolstring:function (L: Plua_State; idx: Integer; len: size_t): Pchar; cdecl;
+  lua_rawlen:function (L: Plua_State; idx: Integer): size_t; cdecl;
+  lua_tocfunction:function (L: Plua_State; idx: Integer): lua_CFunction; cdecl;
+  lua_touserdata:function (L: Plua_State; idx: Integer): Pointer; cdecl;
+  lua_tothread:function (L: Plua_State; idx: Integer): Plua_State; cdecl;
+  lua_topointer:function (L: Plua_State; idx: Integer): Pointer; cdecl;
 
-(*
-** get functions (Lua -> stack)
-*)
-  lua_gettable: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_rawget: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_rawgeti: procedure(L: Plua_State; index, n: Integer); cdecl;
-  lua_newtable: procedure(L: Plua_State); cdecl;
-  lua_getmetatable: function(L: Plua_State; objindex: Integer): Integer; cdecl;
-  lua_getmode: function(L: Plua_State; index: Integer): PChar; cdecl;
-  lua_getglobals: procedure(L: Plua_State; index: Integer); cdecl;
+  //Comparison and arithmetic functions
+  lua_arith:procedure (L: Plua_State; op: Integer); cdecl;
+  lua_rawequal:function (L: Plua_State; idx1: Integer; idx2: Integer): integer; cdecl;
+  lua_compare:function (L: Plua_State; idx1: Integer; idx2: Integer; op: Integer): integer; cdecl;
 
-(*
-** set functions (stack -> Lua)
-*)
-  lua_settable: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_rawset: procedure(L: Plua_State; index: Integer); cdecl;
-  lua_rawseti: procedure(L: Plua_State; index, n: Integer); cdecl;
-  lua_setmode: procedure(L: Plua_State; index: Integer; const mode: PChar); cdecl;
-  lua_setmetatable: procedure(L: Plua_State; objindex: Integer); cdecl;
-  lua_setglobals: procedure(L: Plua_State; index: Integer); cdecl;
+  //push functions (C -> stack)
+  lua_pushnil:procedure (L: Plua_State); cdecl;
+  lua_pushnumber:procedure (L: Plua_State; n: lua_Number); cdecl;
+  lua_pushinteger:procedure (L: Plua_State; n: lua_Integer); cdecl;
+  lua_pushlstring:function (L: Plua_State; const s: Pchar; len: size_t): Pchar; cdecl;
+  lua_pushstring:function (L: Plua_State; const s: Pchar): Pchar; cdecl;
+  lua_pushvfstring:function (L: Plua_State; const fmt: Pchar; argp: pointer): Pchar; cdecl;
+  lua_pushfstring:function (L: Plua_State; const fmt: PChar; arg: array of Pointer): PChar; cdecl;
+  lua_pushcclosure:procedure (L: Plua_State; fn: lua_CFunction; n: Integer); cdecl;
+  lua_pushboolean:procedure (L: Plua_State; b: Integer); cdecl;
+  lua_pushlightuserdata: procedure (L: Plua_State; p: pointer); cdecl;
+  lua_pushthread:function (L: Plua_State): Integer; cdecl;
 
-(*
-** `load' and `call' functions (load and run Lua code)
-*)
-  lua_call: procedure(L: Plua_State; nargs, nresults: Integer); cdecl;
-  //lua_pcall: function(L: Plua_State; nargs, nresults, errf: Integer): Integer; cdecl;
-  lua_pcall       : function (L : Plua_State; nargs, nresults, errfunc : integer;
-                                 ctx : integer = 0; k : lua_CFunction = nil) : integer; cdecl;
-  lua_load: function(L: Plua_State; reader: lua_Chunkreader; data: Pointer; const chunkname: PChar): Integer; cdecl;
+  //get functions (Lua -> stack)
+  lua_getglobal:function (L: Plua_State; const name: Pchar): Integer; cdecl;
+  lua_gettable:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_getfield:function (L: Plua_State; idx: Integer; const k: Pchar): Integer; cdecl;
+  lua_geti:function (L: Plua_State; idx: Integer; n: lua_Integer): Integer; cdecl;
+  lua_rawget:function (L: Plua_State; idx: Integer): Integer; cdecl;
+  lua_rawgeti:function (L: Plua_State; idx: Integer; n: lua_Integer): Integer; cdecl;
+  lua_rawgetp:function (L: Plua_State; idx: Integer; const p: Pointer): Integer; cdecl;
 
+  lua_createtable:procedure (L: Plua_State; narr: Integer; nrec: Integer); cdecl;
+  lua_newuserdata:function (L: Plua_State; sz: size_t): Pointer; cdecl;
+  lua_getmetatable:function (L: Plua_State; objindex: Integer): Integer; cdecl;
+  lua_getuservalue:function (L: Plua_State; idx: Integer): Integer; cdecl;
+
+  //set functions (stack -> Lua)
+  lua_setglobal:procedure (L: Plua_State; const name: pchar); cdecl;
+  lua_settable:procedure (L: Plua_State; idx: Integer); cdecl;
+  lua_setfield:procedure (L: Plua_State; idx: Integer; const k: Pchar); cdecl;
+  lua_seti:procedure (L: Plua_State; idx: Integer; n: lua_Integer); cdecl;
+  lua_rawset:procedure (L: Plua_State; idx: Integer); cdecl;
+  lua_rawseti:procedure (L: Plua_State; idx: Integer; n: lua_Integer); cdecl;
+  lua_rawsetp:procedure (L: Plua_State; idx: Integer; const p: Pointer); cdecl;
+  lua_setmetatable:function (L: Plua_State; objindex: Integer): Integer; cdecl;
+  lua_setuservalue:procedure (L: Plua_State; idx: Integer); cdecl;
+
+  //'load' and 'call' functions (load and run Lua code)
+  lua_callk:procedure (L: Plua_State; nargs: Integer; nresults: Integer; ctx: Integer; k:lua_KFunction); cdecl;
+  //#define lua_call(L,n,r)         lua_callk(L, (n), (r), 0, NULL) //TODO: make procedure
+  lua_pcallk:function (L: Plua_State; nargs: Integer; nresults: Integer; errfunc: Integer; ctx: integer; k:lua_KFunction): Integer; cdecl;
+  //#define lua_pcall(L,n,r,f)      lua_pcallk(L, (n), (r), (f), 0, NULL) //TOOD: make procedure
+  lua_load:function (L: Plua_State; reader: lua_Reader; dt: Pointer; const chunkname: Pchar; const mode: Pchar): Integer; cdecl;
+  lua_dump:function (L: Plua_State; writer: lua_Writer; data: Pointer; strip: Integer): Integer; cdecl;
+
+  //continue here
 (*
 ** coroutine functions
 *)
@@ -249,18 +252,18 @@ var
 
   lua_concat: procedure(L: Plua_State; n: Integer); cdecl;
 
-  lua_newuserdata: function(L: Plua_State; size: size_t): Pointer; cdecl;
+
 
   //5.0
-   lua_setfield: procedure(L: Plua_State; idx: Integer; k: PChar); cdecl;
 
-   lua_setglobal: procedure(L : Plua_State; var_ : PChar); cdecl;
-   lua_getglobal: function(L: Plua_State; const name: PChar): Integer; cdecl;
+
+
+
 
    luaL_tolstring    : function (L : Plua_State; idx : integer; var len : size_t) : PAnsiChar; cdecl;
-   lua_tolstring   : function (L : Plua_State; idx : integer; len : size_t) : PAnsiChar; cdecl;
-   lua_getfield    : procedure(L : Plua_State; idx : integer; k : PAnsiChar); cdecl;
-   lua_tonumberx   : function (L : Plua_State; idx : integer; isnum : PInteger) : lua_Number; cdecl;
+
+
+
 
 (*
 ** ===============================================================
@@ -279,7 +282,7 @@ procedure lua_pushcfunction(L: Plua_State; f: lua_CFunction);
 
 function lua_isfunction(L: Plua_State; n: Integer): Boolean;
 function lua_istable(L: Plua_State; n: Integer): Boolean;
-function lua_isuserdata(L: Plua_State; n: Integer): Boolean;
+
 function lua_islightuserdata(L: Plua_State; n: Integer): Boolean;
 function lua_isnil(L: Plua_State; n: Integer): Boolean;
 function lua_isboolean(L: Plua_State; n: Integer): Boolean;
@@ -565,27 +568,19 @@ begin
   //lua_open := nil;
   lua_close := nil;
   lua_newthread := nil;
-  lua_closethread := nil;
   lua_atpanic := nil;
   lua_gettop := nil;
   lua_settop := nil;
   lua_pushvalue := nil;
-  lua_remove := nil;
-  lua_insert := nil;
-  lua_replace := nil;
   lua_checkstack := nil;
   lua_isnumber := nil;
   lua_isstring := nil;
   lua_iscfunction := nil;
   lua_type := nil;
   lua_typename := nil;
-  lua_equal := nil;
   lua_rawequal := nil;
-  lua_lessthan := nil;
   lua_tonumberx := nil;
   lua_toboolean := nil;
-
-  lua_strlen := nil;
   lua_tocfunction := nil;
   lua_touserdata := nil;
   lua_topointer := nil;
@@ -601,18 +596,11 @@ begin
   lua_gettable := nil;
   lua_rawget := nil;
   lua_rawgeti := nil;
-  lua_newtable := nil;
   lua_getmetatable := nil;
-  lua_getmode := nil;
-  lua_getglobals := nil;
   lua_settable := nil;
   lua_rawset := nil;
   lua_rawseti := nil;
-  lua_setmode := nil;
   lua_setmetatable := nil;
-  lua_setglobals := nil;
-  lua_call := nil;
-  lua_pcall := nil;
   lua_load := nil;
   lua_cobegin := nil;
   lua_yield := nil;
@@ -648,27 +636,19 @@ begin
     //lua_open := GetProcAddress(LuaHandle, 'lua_open');
     lua_close := GetProcAddress(LuaHandle, 'lua_close');
     lua_newthread := GetProcAddress(LuaHandle, 'lua_newthread');
-    lua_closethread := GetProcAddress(LuaHandle, 'lua_closethread');
     lua_atpanic := GetProcAddress(LuaHandle, 'lua_atpanic');
     lua_gettop := GetProcAddress(LuaHandle, 'lua_gettop');
     lua_settop := GetProcAddress(LuaHandle, 'lua_settop');
     lua_pushvalue := GetProcAddress(LuaHandle, 'lua_pushvalue');
-    lua_remove := GetProcAddress(LuaHandle, 'lua_remove');
-    lua_insert := GetProcAddress(LuaHandle, 'lua_insert');
-    lua_replace := GetProcAddress(LuaHandle, 'lua_replace');
     lua_checkstack := GetProcAddress(LuaHandle, 'lua_checkstack');
     lua_isnumber := GetProcAddress(LuaHandle, 'lua_isnumber');
     lua_isstring := GetProcAddress(LuaHandle, 'lua_isstring');
     lua_iscfunction := GetProcAddress(LuaHandle, 'lua_iscfunction');
     lua_type := GetProcAddress(LuaHandle, 'lua_type');
     lua_typename := GetProcAddress(LuaHandle, 'lua_typename');
-    lua_equal := GetProcAddress(LuaHandle, 'lua_equal');
     lua_rawequal := GetProcAddress(LuaHandle, 'lua_rawequal');
-    lua_lessthan := GetProcAddress(LuaHandle, 'lua_lessthan');
     lua_tonumberx := GetProcAddress(LuaHandle, 'lua_tonumberx');
     lua_toboolean := GetProcAddress(LuaHandle, 'lua_toboolean');
-
-    lua_strlen := GetProcAddress(LuaHandle, 'lua_strlen');
     lua_tocfunction := GetProcAddress(LuaHandle, 'lua_tocfunction');
     lua_touserdata := GetProcAddress(LuaHandle, 'lua_touserdata');
     lua_topointer := GetProcAddress(LuaHandle, 'lua_topointer');
@@ -684,18 +664,11 @@ begin
     lua_gettable := GetProcAddress(LuaHandle, 'lua_gettable');
     lua_rawget := GetProcAddress(LuaHandle, 'lua_rawget');
     lua_rawgeti := GetProcAddress(LuaHandle, 'lua_rawgeti');
-    lua_newtable := GetProcAddress(LuaHandle, 'lua_newtable');
     lua_getmetatable := GetProcAddress(LuaHandle, 'lua_getmetatable');
-    lua_getmode := GetProcAddress(LuaHandle, 'lua_getmode');
-    //lua_getglobals := GetProcAddress(LuaHandle, 'lua_getglobals');
     lua_settable := GetProcAddress(LuaHandle, 'lua_settable');
     lua_rawset := GetProcAddress(LuaHandle, 'lua_rawset');
     lua_rawseti := GetProcAddress(LuaHandle, 'lua_rawseti');
-    lua_setmode := GetProcAddress(LuaHandle, 'lua_setmode');
     lua_setmetatable := GetProcAddress(LuaHandle, 'lua_setmetatable');
-    lua_setglobals := GetProcAddress(LuaHandle, 'lua_setglobals');
-    lua_call := GetProcAddress(LuaHandle, 'lua_call');
-    lua_pcall := GetProcAddress(LuaHandle, 'lua_pcallk'); //subtle rename
     lua_load := GetProcAddress(LuaHandle, 'lua_load');
     lua_cobegin := GetProcAddress(LuaHandle, 'lua_cobegin');
     lua_yield := GetProcAddress(LuaHandle, 'lua_yield');
@@ -961,11 +934,6 @@ end;
 function lua_istable(L: Plua_State; n: Integer): Boolean;
 begin
   Result := lua_type(L, n) = LUA_TTABLE;
-end;
-
-function lua_isuserdata(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) >= LUA_TUSERDATA;
 end;
 
 function lua_islightuserdata(L: Plua_State; n: Integer): Boolean;

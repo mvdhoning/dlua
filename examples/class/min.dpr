@@ -266,7 +266,7 @@ begin
   writeln('run lua script');
   //Ask Lua to run our little script
   result := 0;
-  result := lua_pcall(l, 0, LUA_MULTRET, 0);
+  result := lua_pcall(l, 0, LUA_MULTRET, 0); //TODO: reimplment
   if result>0 then
   begin
     writeln('bad, bad script'); //should provide more usefull info
