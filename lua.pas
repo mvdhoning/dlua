@@ -1,21 +1,18 @@
 (*
-** $Id: lua.h,v 1.154 2002/08/12 17:23:12 roberto Exp $
-** Lua - An Extensible Extension Language
-** TeCGraf: Computer Graphics Technology Group, PUC-Rio, Brazil
-** http://www.lua.org   mailto:info@lua.org
+** $Id: lua.h,v 1.325 2014/12/26 17:24:27 roberto Exp $
+** Lua - A Scripting Language
+** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
 *)
-(*
-** Pascal unit from static linking to dynamic loading by M van der Honing
-*)
+
+//Pascal unit from static linking to dynamic loading by M van der Honing
 unit lua;
 
 interface
 
-// defines to configure freepascal
+//Defines to configure freepascal
 {$IFDEF FPC}
   {$MODE Delphi}
-
   {$IFNDEF WINDOWS}
     {$LINKLIB c}
   {$ENDIF}
@@ -28,18 +25,13 @@ const
   LUA_NAME = 'lua5.3.0.dll';
 {$ENDIF}
 
-(*==============================================================================
-    Dynamic loading and unloading of Lua libs
-==============================================================================*)
-
+//Dynamic loading and unloading of Lua libs
 function LoadLua: Boolean;
 function LoadLuaFrom(FileName: string): Boolean;
 procedure UnLoadLua;
 function LuaLoaded: Boolean;
 
-(*==============================================================================
-    LUA.PAS
-==============================================================================*)
+//LuaConf
 
 type
   size_t = Cardinal;
@@ -48,73 +40,101 @@ type
   PPchar = ^pchar;
 
 const
+  (* maximum stack available.
+   * CHANGE it if you need a different limit. This limit is arbitrary;
+   * its only purpose is to stop Lua to consume unlimited stack
+   * space (and to reserve some numbers for pseudo-indices).
+   *)
+  {$IFDEF CPU64}
+    LUAI_MAXSTACK         = 1000000;
+  {$ELSE}
+    LUAI_MAXSTACK         = 1000000; //C value : 15000
+  {$ENDIF}
 
-(* option for multiple returns in `lua_pcall' and `lua_call' *)
+    LUAI_FIRSTPSEUDOIDX   = (-LUAI_MAXSTACK - 1000);
+
+
+    (* LUA_IDSIZE gives the maximum size for the description of the source
+    ** of a function in debug information.
+    ** CHANGE it if you want a different size.
+    *)
+    LUA_IDSIZE      = 60;
+
+//Lua
+
+//option for multiple returns in 'lua_pcall' and 'lua_call'
+const
   LUA_MULTRET = -1;
 
-(* maximum stack available.
- * CHANGE it if you need a different limit. This limit is arbitrary;
- * its only purpose is to stop Lua to consume unlimited stack
- * space (and to reserve some numbers for pseudo-indices).
- *)
-{$IFDEF CPU64}
-  LUAI_MAXSTACK         = 1000000;
-{$ELSE}
-  LUAI_MAXSTACK         = 1000000; //C value : 15000
-{$ENDIF}
+//pseudo-indices
+  LUA_REGISTRYINDEX= LUAI_FIRSTPSEUDOIDX;
+  function lua_upvalueindex(I: Integer): Integer; inline;
 
-  LUAI_FIRSTPSEUDOIDX   = (-LUAI_MAXSTACK - 1000);
-
-(* pseudo-indices *)
-  LUA_REGISTRYINDEX     = LUAI_FIRSTPSEUDOIDX;
-
-  LUA_GLOBALSINDEX = -10001; //TODO: redefine needed
-
-//function lua_upvalueindex(I: Integer): Integer; //TODO: needs to be elsewhere?
-
-(* error codes for `lua_load' and `lua_pcall' *)
-  LUA_ERRRUN    = 1;
-  LUA_ERRFILE   = 2;
-  LUA_ERRSYNTAX = 3;
-  LUA_ERRMEM    = 4;
-  LUA_ERRERR    = 5;
-  LUA_ERRTHROW  = 6;
+//thread status
+const
+  LUA_OK          = 0;
+  LUA_YIELD       = 1;
+  LUA_ERRRUN      = 2;
+  LUA_ERRSYNTAX   = 3;
+  LUA_ERRMEM      = 4;
+  LUA_ERRGCMM     = 5;
+  LUA_ERRERR      = 6;
 
 type
   Plua_State = Pointer; //TODO: base on type instead of pointer?
 
-(*
-** basic types
-*)
+//basic types
 const
-  LUA_TNONE          = -1;
+  LUA_TNONE               = (-1);
 
-  LUA_TNIL           = 0;
-  LUA_TNUMBER        = 1;
-  LUA_TSTRING        = 2;
-  LUA_TBOOLEAN       = 3;
-  LUA_TTABLE         = 4;
-  LUA_TFUNCTION      = 5;
-  LUA_TUSERDATA      = 6;
-  LUA_TLIGHTUSERDATA = 7;
+  LUA_TNIL                = 0;
+  LUA_TBOOLEAN            = 1;
+  LUA_TLIGHTUSERDATA      = 2;
+  LUA_TNUMBER             = 3;
+  LUA_TSTRING             = 4;
+  LUA_TTABLE              = 5;
+  LUA_TFUNCTION           = 6;
+  LUA_TUSERDATA           = 7;
+  LUA_TTHREAD             = 8;
 
-(* minimum Lua stack available to a C function *)
+  LUA_NUMTAGS             = 9;
+
+//minimum Lua stack available to a C function
   LUA_MINSTACK = 20;
 
-//lua types
+//predefined values in the registry
+  LUA_RIDX_MAINTHREAD     = 1;
+  LUA_RIDX_GLOBALS        = 2;
+  LUA_RIDX_LAST           = LUA_RIDX_GLOBALS;
+
 type
+
+//type of numbers in Lua
   lua_Number = Double;
-  lua_Integer = Integer; //TODO: check double check
-  //Type for C functions registered with Lua
+
+//type for integer functions
+  lua_Integer = Int64;
+
+//unsigned integer type
+  lua_Unsigned = UInt64;
+
+//type for continuation-function contexts
+  lua_KContext = Integer;
+
+//Type for C functions registered with Lua
   lua_CFunction = function(L: Plua_State): Integer; cdecl;
-  //Type for continuation functions
+
+//Type for continuation functions
   lua_KFunction = function(L: Plua_State; status: Integer; ctx: Integer): Integer; cdecl;
-  //Type for functions that read/write blocks when loading/dumping Lua chunks
+
+//Type for functions that read/write blocks when loading/dumping Lua chunks
   lua_Reader = function(L: Plua_State; ud: Pointer; size: size_t): PChar; cdecl;
   lua_Writer = function(L: Plua_State; const p: Pointer; sz: size_t; ud: Pointer): Integer; cdecl;
-  //Type for memory-allocation functions
+
+//Type for memory-allocation functions
   lua_Alloc = function (ud: Pointer; ptr: Pointer; osize: size_t; nsize: size_t): Pointer; cdecl;
-//lua const
+
+//Comparison and arithmetic functions
 const
   LUA_OPADD       = 0 ; // ORDER TM, ORDER OP
   LUA_OPSUB       = 1 ;
@@ -131,11 +151,12 @@ const
   LUA_OPUNM       = 12;
   LUA_OPBNOT      = 13;
 
+//Comparison functions
   LUA_OPEQ        = 0 ;
   LUA_OPLT        = 1 ;
   LUA_OPLE        = 2 ;
 
-  //garbage-collection function and options
+//garbage-collection function and options
   LUA_GCSTOP              = 0 ;
   LUA_GCRESTART           = 1 ;
   LUA_GCCOLLECT           = 2 ;
@@ -146,10 +167,9 @@ const
   LUA_GCSETSTEPMUL        = 7 ;
   LUA_GCISRUNNING         = 9 ;
 
-//local lua functions
+//lua api functions
   function lua_open: Plua_State;
 
-//lua api functions
 var
   //state manipulation
   lua_newstate:function (f: lua_Alloc; ud: Pointer):Plua_State; cdecl;
@@ -315,86 +335,69 @@ var
 
 
   //compatibility macros and functions
-
-{$IFDEF LUA_COMPAT_APIINTCASTS}
+  {$IFDEF LUA_COMPAT_APIINTCASTS}
     var
+    //TODO: implement procedures/functions
     //#define lua_pushunsigned(L,n)   lua_pushinteger(L, (lua_Integer)(n))
     //#define lua_tounsignedx(L,i,is) ((lua_Unsigned)lua_tointegerx(L,i,is))
     //#define lua_tounsigned(L,i)     lua_tounsignedx(L,(i),NULL)
+  {$ENDIF}
 
-{$ENDIF}
-
-
-
-//procedure lua_getregistry(L: Plua_State);
-
-//function isnull(L: Plua_State; n: Integer): Boolean;
-
-//continue here
-
-(* compatibility with ref system*)
-
-(* pre-defined references *)
+//Debug API
 const
-  LUA_NOREF = -2;
-  LUA_REFNIL = -1;
+// Event codes
+  LUA_HOOKCALL     = 0;
+  LUA_HOOKRET      = 1;
+  LUA_HOOKLINE     = 2;
+  LUA_HOOKCOUNT    = 3;
+  LUA_HOOKTAILCALL = 4;
 
-function lua_ref(L: Plua_State; lock: Integer): Integer;
-procedure lua_unref(L: Plua_State; ref: Integer);
-procedure lua_getref(L: Plua_State; ref: Integer);
-
-(*
-** {======================================================================
-** Debug API
-** =======================================================================
-*)
-type
-  lua_Hookevent = (LUA_HOOKCALL, LUA_HOOKRET, LUA_HOOKLINE, LUA_HOOKCOUNT);
-
-const
-  LUA_MASKCALL = 2 shl Ord(LUA_HOOKCALL);
-  LUA_MASKRET  = 2 shl Ord(LUA_HOOKRET);
-  LUA_MASKLINE = 2 shl Ord(LUA_HOOKLINE);
-
-function LUA_MASKCOUNT(count: LongWord): LongWord;
-function lua_getmaskcount(mask: LongWord): LongWord;
-
-const
-  LUA_MAXCOUNT = (1 shl 24) - 1;
-
-  LUA_IDSIZE = 60;
+//Event masks
+  LUA_MASKCALL  = 1 shl Ord(LUA_HOOKCALL);
+  LUA_MASKRET   = 1 shl Ord(LUA_HOOKRET);
+  LUA_MASKLINE  = 1 shl Ord(LUA_HOOKLINE);
+  LUA_MASKCOUNT = 1 shl Ord(LUA_HOOKCOUNT);
 
 type
-  lua_Debug = record           (* activation record *)
-    event: lua_Hookevent;
-    name: PChar;               (* (n) *)
-    namewhat: PChar;           (* (n) `global', `local', `field', `method' *)
-    what: PChar;               (* (S) `Lua' function, `C' function, Lua `main' *)
-    source: PChar;             (* (S) *)
-    currentline: Integer;      (* (l) *)
-    nups: Integer;             (* (u) number of upvalues *)
-    linedefined: Integer;      (* (S) *)
-    short_src: array[0..LUA_IDSIZE - 1] of Char; (* (S) *)
-    (* private part *)
-    i_ci: Integer;              (* active function *)
+  lua_Debug = record           //activation record
+    event: Integer;
+    name: PChar;               // (n)
+    namewhat: PChar;           // (n) 'global', 'local', 'field', 'method'
+    what: PChar;               // (S) 'Lua' function, 'C' function, Lua 'main'
+    source: PChar;             // (S)
+    currentline: Integer;      // (l)
+    linedefined: Integer;      // (S)
+    lastlinedefined: Integer;  // (S)
+    nups: Byte;                // (u) number of upvalues
+    nparams: Byte;             // (u) number of parameters
+    isvararg: ByteBool;        // (u)
+    istailcall: ByteBool;      // (t)
+    short_src: packed array[0..LUA_IDSIZE - 1] of Char; // (S)
+    //private part
+    i_ci: Pointer;             // active function
   end;
   Plua_Debug = ^lua_Debug;
 
+//Functions to be called by the debugger in specific events
   lua_Hook = procedure(L: Plua_State; ar: Plua_Debug); cdecl;
 
 var
-  lua_getstack: function(L: Plua_State; level: Integer; ar: Plua_Debug): Integer; cdecl;
-  lua_getinfo: function(L: Plua_State; const what: PChar; ar: Plua_Debug): Integer; cdecl;
-  lua_getlocal: function(L: Plua_State; const ar: Plua_Debug; n: Integer): PChar; cdecl;
-  lua_setlocal: function(L: Plua_State; const ar: Plua_Debug; n: Integer): PChar; cdecl;
+  lua_getstack:function (L: Plua_State; level: Integer; ar: Plua_Debug): Integer; cdecl;
+  lua_getinfo:function (L: Plua_State; const what: PChar; ar: Plua_Debug): Integer; cdecl;
+  lua_getlocal:function (L: Plua_State; const ar: Plua_Debug; n: Integer): PChar; cdecl;
+  lua_setlocal:function (L: Plua_State; const ar: Plua_Debug; n: Integer): PChar; cdecl;
+  lua_getupvalue:function (L: Plua_State; funcindex: Integer; n: Integer): PChar; cdecl;
+  lua_setupvalue:function (L: Plua_State; funcindex: Integer; n: Integer): PChar; cdecl;
 
-  lua_sethook: function(L: Plua_State; func: lua_Hook; mask: LongWord): Integer; cdecl;
-  lua_gethook: function(L: Plua_State): lua_hook; cdecl;
-  lua_gethookmask: function(L: Plua_State): LongWord; cdecl;
+  lua_upvalueid:function (L: Plua_State; fidx: Integer; n: Integer): Pointer; cdecl;
+  lua_upvaluejoin:procedure (L: Plua_State; fidx1: Integer; n1: Integer; fidx2: Integer; n2: Integer); cdecl;
 
-(*==============================================================================
-    LUALIB.PAS
-==============================================================================*)
+  lua_sethook:procedure (L: Plua_State; func: lua_Hook; mask: Integer; count: Integer); cdecl;
+  lua_gethook:function (L: Plua_State): lua_Hook; cdecl;
+  lua_gethookmask:function (L: Plua_State): Integer; cdecl;
+  lua_gethookcount:function (L: Plua_State): Integer; cdecl;
+
+//LuaLib
 const
   LUA_COLIBNAME = 'coroutine';
 
@@ -586,132 +589,201 @@ var
   LuaHandle: LibHandle = INVALID_MODULE_HANDLE;
   LuaLibHandle: LibHandle = INVALID_MODULE_HANDLE;
 
-  function lua_open: Plua_State;
-  begin
-       Result :=luaL_newstate;
-  end;
+function lua_open: Plua_State; //lua_open is depracted this is a replacement
+begin
+  Result :=luaL_newstate;
+end;
 
 procedure ClearLuaProc;
 begin
-  //lua_open := nil;
-  lua_close := nil;
-  lua_newthread := nil;
-  lua_atpanic := nil;
-  lua_gettop := nil;
-  lua_settop := nil;
-  lua_pushvalue := nil;
-  lua_checkstack := nil;
-  lua_isnumber := nil;
-  lua_isstring := nil;
-  lua_iscfunction := nil;
-  lua_type := nil;
-  lua_typename := nil;
-  lua_rawequal := nil;
-  lua_tonumberx := nil;
-  lua_toboolean := nil;
-  lua_tocfunction := nil;
-  lua_touserdata := nil;
-  lua_topointer := nil;
-  lua_pushnil := nil;
-  lua_pushnumber := nil;
-  lua_pushlstring := nil;
-  lua_pushstring := nil;
-  lua_pushvfstring := nil;
-  lua_pushfstring := nil;
-  lua_pushcclosure := nil;
-  lua_pushboolean := nil;
-  lua_pushlightuserdata := nil;
-  lua_gettable := nil;
-  lua_rawget := nil;
-  lua_rawgeti := nil;
-  lua_getmetatable := nil;
-  lua_settable := nil;
-  lua_rawset := nil;
-  lua_rawseti := nil;
-  lua_setmetatable := nil;
-  lua_load := nil;
-  lua_resume := nil;
-  lua_error := nil;
-  lua_next := nil;
-  lua_concat := nil;
-  lua_newuserdata := nil;
-  lua_getstack := nil;
-  lua_getinfo := nil;
-  lua_getlocal := nil;
-  lua_setlocal := nil;
-  lua_gethook := nil;
-  lua_sethook := nil;
-  lua_gethookmask := nil;
-
-  lua_setfield := nil;
-  lua_getfield := nil;
-  lua_setglobal := nil;
-  lua_getglobal := nil;
-
-  lua_tolstring := nil;
+  lua_newstate:=nil;
+  lua_close:=nil;
+  lua_newthread:=nil;
+  lua_atpanic:=nil;
+  lua_version:=nil;
+  lua_absindex:=nil;
+  lua_gettop:=nil;
+  lua_settop:=nil;
+  lua_pushvalue:=nil;
+  lua_rotate:=nil;
+  lua_copy:=nil;
+  lua_checkstack:=nil;
+  lua_xmove:=nil;
+  lua_isnumber:=nil;
+  lua_isstring:=nil;
+  lua_iscfunction:=nil;
+  lua_isinteger:=nil;
+  lua_isuserdata:=nil;
+  lua_type:=nil;
+  lua_typename:=nil;
+  lua_tonumberx:=nil;
+  lua_tointegerx:=nil;
+  lua_toboolean:=nil;
+  lua_tolstring:=nil;
+  lua_rawlen:=nil;
+  lua_tocfunction:=nil;
+  lua_touserdata:=nil;
+  lua_tothread:=nil;
+  lua_topointer:=nil;
+  lua_arith:=nil;
+  lua_rawequal:=nil;
+  lua_compare:=nil;
+  lua_pushnil:=nil;
+  lua_pushnumber:=nil;
+  lua_pushinteger:=nil;
+  lua_pushlstring:=nil;
+  lua_pushstring:=nil;
+  lua_pushvfstring:=nil;
+  lua_pushfstring:=nil;
+  lua_pushcclosure:=nil;
+  lua_pushboolean:=nil;
+  lua_pushlightuserdata:=nil;
+  lua_pushthread:=nil;
+  lua_getglobal:=nil;
+  lua_gettable:=nil;
+  lua_getfield:=nil;
+  lua_geti:=nil;
+  lua_rawget:=nil;
+  lua_rawgeti:=nil;
+  lua_rawgetp:=nil;
+  lua_createtable:=nil;
+  lua_newuserdata:=nil;
+  lua_getmetatable:=nil;
+  lua_getuservalue:=nil;
+  lua_setglobal:=nil;
+  lua_settable:=nil;
+  lua_setfield:=nil;
+  lua_seti:=nil;
+  lua_rawset:=nil;
+  lua_rawseti:=nil;
+  lua_rawsetp:=nil;
+  lua_setmetatable:=nil;
+  lua_setuservalue:=nil;
+  lua_callk:=nil;
+  lua_pcallk:=nil;
+  lua_load:=nil;
+  lua_dump:=nil;
+  lua_yieldk:=nil;
+  lua_resume:=nil;
+  lua_status:=nil;
+  lua_isyieldable:=nil;
+  lua_gc:=nil;
+  lua_error:=nil;
+  lua_next:=nil;
+  lua_concat:=nil;
+  lua_len:=nil;
+  lua_stringtonumber:=nil;
+  lua_getallocf:=nil;
+  lua_setallocf:=nil;
+  lua_getstack:=nil;
+  lua_getinfo:=nil;
+  lua_getlocal:=nil;
+  lua_setlocal:=nil;
+  lua_getupvalue:=nil;
+  lua_setupvalue:=nil;
+  lua_upvalueid:=nil;
+  lua_upvaluejoin:=nil;
+  lua_sethook:=nil;
+  lua_gethook:=nil;
+  lua_gethookmask:=nil;
+  lua_gethookcount:=nil;
 end;
 
 procedure LoadLuaProc;
 begin
   if LuaHandle <> INVALID_MODULE_HANDLE then
   begin
-    //lua_open := GetProcAddress(LuaHandle, 'lua_open');
-    lua_close := GetProcAddress(LuaHandle, 'lua_close');
-    lua_newthread := GetProcAddress(LuaHandle, 'lua_newthread');
-    lua_atpanic := GetProcAddress(LuaHandle, 'lua_atpanic');
-    lua_gettop := GetProcAddress(LuaHandle, 'lua_gettop');
-    lua_settop := GetProcAddress(LuaHandle, 'lua_settop');
-    lua_pushvalue := GetProcAddress(LuaHandle, 'lua_pushvalue');
-    lua_checkstack := GetProcAddress(LuaHandle, 'lua_checkstack');
-    lua_isnumber := GetProcAddress(LuaHandle, 'lua_isnumber');
-    lua_isstring := GetProcAddress(LuaHandle, 'lua_isstring');
-    lua_iscfunction := GetProcAddress(LuaHandle, 'lua_iscfunction');
-    lua_type := GetProcAddress(LuaHandle, 'lua_type');
-    lua_typename := GetProcAddress(LuaHandle, 'lua_typename');
-    lua_rawequal := GetProcAddress(LuaHandle, 'lua_rawequal');
-    lua_tonumberx := GetProcAddress(LuaHandle, 'lua_tonumberx');
-    lua_toboolean := GetProcAddress(LuaHandle, 'lua_toboolean');
-    lua_tocfunction := GetProcAddress(LuaHandle, 'lua_tocfunction');
-    lua_touserdata := GetProcAddress(LuaHandle, 'lua_touserdata');
-    lua_topointer := GetProcAddress(LuaHandle, 'lua_topointer');
-    lua_pushnil := GetProcAddress(LuaHandle, 'lua_pushnil');
-    lua_pushnumber := GetProcAddress(LuaHandle, 'lua_pushnumber');
-    lua_pushlstring := GetProcAddress(LuaHandle, 'lua_pushlstring');
-    lua_pushstring := GetProcAddress(LuaHandle, 'lua_pushstring');
-    lua_pushvfstring := GetProcAddress(LuaHandle, 'lua_pushvfstring');
-    lua_pushfstring := GetProcAddress(LuaHandle, 'lua_pushfstring');
-    lua_pushcclosure := GetProcAddress(LuaHandle, 'lua_pushcclosure');
-    lua_pushboolean := GetProcAddress(LuaHandle, 'lua_pushboolean');
-    lua_pushlightuserdata := GetProcAddress(LuaHandle, 'lua_pushlightuserdata');
-    lua_gettable := GetProcAddress(LuaHandle, 'lua_gettable');
-    lua_rawget := GetProcAddress(LuaHandle, 'lua_rawget');
-    lua_rawgeti := GetProcAddress(LuaHandle, 'lua_rawgeti');
-    lua_getmetatable := GetProcAddress(LuaHandle, 'lua_getmetatable');
-    lua_settable := GetProcAddress(LuaHandle, 'lua_settable');
-    lua_rawset := GetProcAddress(LuaHandle, 'lua_rawset');
-    lua_rawseti := GetProcAddress(LuaHandle, 'lua_rawseti');
-    lua_setmetatable := GetProcAddress(LuaHandle, 'lua_setmetatable');
-    lua_load := GetProcAddress(LuaHandle, 'lua_load');
-    lua_resume := GetProcAddress(LuaHandle, 'lua_resume');
-    lua_error := GetProcAddress(LuaHandle, 'lua_error');
-    lua_next := GetProcAddress(LuaHandle, 'lua_next');
-    lua_concat := GetProcAddress(LuaHandle, 'lua_concat');
-    lua_newuserdata := GetProcAddress(LuaHandle, 'lua_newuserdata');
-    lua_getstack := GetProcAddress(LuaHandle, 'lua_getstack');
-    lua_getinfo := GetProcAddress(LuaHandle, 'lua_getinfo');
-    lua_getlocal := GetProcAddress(LuaHandle, 'lua_getlocal');
-    lua_setlocal := GetProcAddress(LuaHandle, 'lua_setlocal');
-    lua_gethook := GetProcAddress(LuaHandle, 'lua_gethook');
-    lua_sethook := GetProcAddress(LuaHandle, 'lua_sethook');
-    lua_gethookmask := GetProcAddress(LuaHandle, 'lua_gethookmask');
-
-    //5.0
-    lua_setfield := GetProcAddress(LuaHandle, 'lua_setfield');
-    lua_getfield := GetProcAddress(LuaHandle, 'lua_getfield');
-    lua_setglobal := GetProcAddress(LuaHandle, 'lua_setglobal');
-    lua_getglobal := GetProcAddress(LuaHandle, 'lua_getglobal');
-
-    lua_tolstring := GetProcAddress(LuaHandle, 'lua_tolstring');
+    lua_newstate:=GetProcAddress(LuaHandle,'lua_newstate');
+    lua_close:=GetProcAddress(LuaHandle,'lua_close');
+    lua_newthread:=GetProcAddress(LuaHandle,'lua_newthread');
+    lua_atpanic:=GetProcAddress(LuaHandle,'lua_atpanic');
+    lua_version:=GetProcAddress(LuaHandle,'lua_version');
+    lua_absindex:=GetProcAddress(LuaHandle,'lua_absindex');
+    lua_gettop:=GetProcAddress(LuaHandle,'lua_gettop');
+    lua_settop:=GetProcAddress(LuaHandle,'lua_settop');
+    lua_pushvalue:=GetProcAddress(LuaHandle,'lua_pushvalue');
+    lua_rotate:=GetProcAddress(LuaHandle,'lua_rotate');
+    lua_copy:=GetProcAddress(LuaHandle,'lua_copy');
+    lua_checkstack:=GetProcAddress(LuaHandle,'lua_checkstack');
+    lua_xmove:=GetProcAddress(LuaHandle,'lua_xmove');
+    lua_isnumber:=GetProcAddress(LuaHandle,'lua_isnumber');
+    lua_isstring:=GetProcAddress(LuaHandle,'lua_isstring');
+    lua_iscfunction:=GetProcAddress(LuaHandle,'lua_iscfunction');
+    lua_isinteger:=GetProcAddress(LuaHandle,'lua_isinteger');
+    lua_isuserdata:=GetProcAddress(LuaHandle,'lua_isuserdata');
+    lua_type:=GetProcAddress(LuaHandle,'lua_type');
+    lua_typename:=GetProcAddress(LuaHandle,'lua_typename');
+    lua_tonumberx:=GetProcAddress(LuaHandle,'lua_tonumberx');
+    lua_tointegerx:=GetProcAddress(LuaHandle,'lua_tointegerx');
+    lua_toboolean:=GetProcAddress(LuaHandle,'lua_toboolean');
+    lua_tolstring:=GetProcAddress(LuaHandle,'lua_tolstring');
+    lua_rawlen:=GetProcAddress(LuaHandle,'lua_rawlen');
+    lua_tocfunction:=GetProcAddress(LuaHandle,'lua_tocfunction');
+    lua_touserdata:=GetProcAddress(LuaHandle,'lua_touserdata');
+    lua_tothread:=GetProcAddress(LuaHandle,'lua_tothread');
+    lua_topointer:=GetProcAddress(LuaHandle,'lua_topointer');
+    lua_arith:=GetProcAddress(LuaHandle,'lua_arith');
+    lua_rawequal:=GetProcAddress(LuaHandle,'lua_rawequal');
+    lua_compare:=GetProcAddress(LuaHandle,'lua_compare');
+    lua_pushnil:=GetProcAddress(LuaHandle,'lua_pushnil');
+    lua_pushnumber:=GetProcAddress(LuaHandle,'lua_pushnumber');
+    lua_pushinteger:=GetProcAddress(LuaHandle,'lua_pushinteger');
+    lua_pushlstring:=GetProcAddress(LuaHandle,'lua_pushlstring');
+    lua_pushstring:=GetProcAddress(LuaHandle,'lua_pushstring');
+    lua_pushvfstring:=GetProcAddress(LuaHandle,'lua_pushvfstring');
+    lua_pushfstring:=GetProcAddress(LuaHandle,'lua_pushfstring');
+    lua_pushcclosure:=GetProcAddress(LuaHandle,'lua_pushcclosure');
+    lua_pushboolean:=GetProcAddress(LuaHandle,'lua_pushboolean');
+    lua_pushlightuserdata:=GetProcAddress(LuaHandle,'lua_pushlightuserdata');
+    lua_pushthread:=GetProcAddress(LuaHandle,'lua_pushthread');
+    lua_getglobal:=GetProcAddress(LuaHandle,'lua_getglobal');
+    lua_gettable:=GetProcAddress(LuaHandle,'lua_gettable');
+    lua_getfield:=GetProcAddress(LuaHandle,'lua_getfield');
+    lua_geti:=GetProcAddress(LuaHandle,'lua_geti');
+    lua_rawget:=GetProcAddress(LuaHandle,'lua_rawget');
+    lua_rawgeti:=GetProcAddress(LuaHandle,'lua_rawgeti');
+    lua_rawgetp:=GetProcAddress(LuaHandle,'lua_rawgetp');
+    lua_createtable:=GetProcAddress(LuaHandle,'lua_createtable');
+    lua_newuserdata:=GetProcAddress(LuaHandle,'lua_newuserdata');
+    lua_getmetatable:=GetProcAddress(LuaHandle,'lua_getmetatable');
+    lua_getuservalue:=GetProcAddress(LuaHandle,'lua_getuservalue');
+    lua_setglobal:=GetProcAddress(LuaHandle,'lua_setglobal');
+    lua_settable:=GetProcAddress(LuaHandle,'lua_settable');
+    lua_setfield:=GetProcAddress(LuaHandle,'lua_setfield');
+    lua_seti:=GetProcAddress(LuaHandle,'lua_seti');
+    lua_rawset:=GetProcAddress(LuaHandle,'lua_rawset');
+    lua_rawseti:=GetProcAddress(LuaHandle,'lua_rawseti');
+    lua_rawsetp:=GetProcAddress(LuaHandle,'lua_rawsetp');
+    lua_setmetatable:=GetProcAddress(LuaHandle,'lua_setmetatable');
+    lua_setuservalue:=GetProcAddress(LuaHandle,'lua_setuservalue');
+    lua_callk:=GetProcAddress(LuaHandle,'lua_callk');
+    lua_pcallk:=GetProcAddress(LuaHandle,'lua_pcallk');
+    lua_load:=GetProcAddress(LuaHandle,'lua_load');
+    lua_dump:=GetProcAddress(LuaHandle,'lua_dump');
+    lua_yieldk:=GetProcAddress(LuaHandle,'lua_yieldk');
+    lua_resume:=GetProcAddress(LuaHandle,'lua_resume');
+    lua_status:=GetProcAddress(LuaHandle,'lua_status');
+    lua_isyieldable:=GetProcAddress(LuaHandle,'lua_isyieldable');
+    lua_gc:=GetProcAddress(LuaHandle,'lua_gc');
+    lua_error:=GetProcAddress(LuaHandle,'lua_error');
+    lua_next:=GetProcAddress(LuaHandle,'lua_next');
+    lua_concat:=GetProcAddress(LuaHandle,'lua_concat');
+    lua_len:=GetProcAddress(LuaHandle,'lua_len');
+    lua_stringtonumber:=GetProcAddress(LuaHandle,'lua_stringtonumber');
+    lua_getallocf:=GetProcAddress(LuaHandle,'lua_getallocf');
+    lua_setallocf:=GetProcAddress(LuaHandle,'lua_setallocf');
+    lua_getstack:=GetProcAddress(LuaHandle,'lua_getstack');
+    lua_getinfo:=GetProcAddress(LuaHandle,'lua_getinfo');
+    lua_getlocal:=GetProcAddress(LuaHandle,'lua_getlocal');
+    lua_setlocal:=GetProcAddress(LuaHandle,'lua_setlocal');
+    lua_getupvalue:=GetProcAddress(LuaHandle,'lua_getupvalue');
+    lua_setupvalue:=GetProcAddress(LuaHandle,'lua_setupvalue');
+    lua_upvalueid:=GetProcAddress(LuaHandle,'lua_upvalueid');
+    lua_upvaluejoin:=GetProcAddress(LuaHandle,'lua_upvaluejoin');
+    lua_sethook:=GetProcAddress(LuaHandle,'lua_sethook');
+    lua_gethook:=GetProcAddress(LuaHandle,'lua_gethook');
+    lua_gethookmask:=GetProcAddress(LuaHandle,'lua_gethookmask');
+    lua_gethookcount:=GetProcAddress(LuaHandle,'lua_gethookcount');
   end;
 end;
 
@@ -903,7 +975,7 @@ end;
 ==============================================================================*)
 function lua_upvalueindex(I: Integer): Integer;
 begin
-  Result := LUA_GLOBALSINDEX - i;
+  Result := LUA_REGISTRYINDEX - i;
 end;
 
 procedure lua_boxpointer(L: Plua_State; u: Pointer);
@@ -1032,15 +1104,12 @@ end;
 ** =======================================================================
 *)
 
-function LUA_MASKCOUNT(count: LongWord): LongWord;
-begin
-  Result := count shl 8;
-end;
 
-function lua_getmaskcount(mask: LongWord): LongWord;
-begin
-  Result := mask shr 8;
-end;
+
+//function lua_getmaskcount(mask: LongWord): LongWord;
+//begin
+//  Result := mask shr 8;
+//end;
 
 (*==============================================================================
     LAUXLIB.PAS
