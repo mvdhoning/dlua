@@ -6,6 +6,12 @@
 *)
 
 //Pascal unit from static linking to dynamic loading by M van der Honing
+
+//TODO: fix where size_t is used psize_t should be used
+//TODO: fix indenting
+//TODO: remove depracted funcionality
+//TODO: add some missing luaxlib functionality
+
 unit lua;
 
 interface
@@ -54,6 +60,8 @@ const
 //of a function in debug information.
 //CHANGE it if you want a different size.
   LUA_IDSIZE      = 60;
+
+  LUA_VERSION_NUM         = 503;
 
 //Lua
 
@@ -199,7 +207,7 @@ var
   lua_tonumberx:function (L: Plua_State; idx: Integer; isnum: PInteger): lua_Number; cdecl;
   lua_tointegerx:function (L: Plua_State; idx: Integer; isnum: Pinteger): lua_Integer; cdecl;
   lua_toboolean:function (L: Plua_State; idx: Integer): Integer; cdecl;
-  lua_tolstring:function (L: Plua_State; idx: Integer; len: size_t): Pchar; cdecl;
+  lua_tolstring:function (L: Plua_State; idx: Integer; len: psize_t): Pchar; cdecl;
   lua_rawlen:function (L: Plua_State; idx: Integer): size_t; cdecl;
   lua_tocfunction:function (L: Plua_State; idx: Integer): lua_CFunction; cdecl;
   lua_touserdata:function (L: Plua_State; idx: Integer): Pointer; cdecl;
@@ -319,15 +327,6 @@ var
   procedure lua_remove(L: Plua_State; idx: Integer); inline;
 
   procedure lua_replace(L: Plua_State; idx: Integer); inline;
-
-  //compatibility macros and functions
-  {$IFDEF LUA_COMPAT_APIINTCASTS}
-    var
-    //TODO: implement procedures/functions
-    //#define lua_pushunsigned(L,n)   lua_pushinteger(L, (lua_Integer)(n))
-    //#define lua_tounsignedx(L,i,is) ((lua_Unsigned)lua_tointegerx(L,i,is))
-    //#define lua_tounsigned(L,i)     lua_tounsignedx(L,(i),NULL)
-  {$ENDIF}
 
 //Debug API
 const
@@ -457,108 +456,91 @@ const
   LUA_NOREF  = -2;
   LUA_REFNIL = -1;
 
-  procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
-
 var
   luaL_checkversion_:procedure (L: Plua_State; ver: lua_Number; sz: size_t); cdecl;
-  //define luaL_checkversion(L) luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES) //TODO implement procedure
+  procedure luaL_checkversion(L: PLua_State);
 var
   luaL_getmetafield:function (L: Plua_State; obj: Integer; const e: PChar): Integer; cdecl;
-  luaL_callmeta: function(L: Plua_State; obj: Integer; const event: PChar): Integer; cdecl;
+  luaL_callmeta:function (L: Plua_State; obj: Integer; const event: PChar): Integer; cdecl;
   luaL_tolstring:function (L: Plua_State; idx: Integer; len: size_t): pchar; cdecl;
-  luaL_argerror: function(L: Plua_State; arg: Integer; const extramsg: PChar): Integer; cdecl;
+  luaL_argerror:function (L: Plua_State; arg: Integer; const extramsg: PChar): Integer; cdecl;
 
-  //contintue here
-  luaL_check_lstr: function(L: Plua_State; numArg: Integer; len: Psize_t): PChar; cdecl;
-  luaL_opt_lstr: function(L: Plua_State; numArg: Integer; const def: PChar; len: Psize_t): PChar; cdecl;
-  luaL_check_number: function(L: Plua_State; numArg: Integer): lua_Number; cdecl;
-  luaL_opt_number: function(L: Plua_State; nArg: Integer; def: lua_Number): lua_Number; cdecl;
+  luaL_checklstring:function (L: Plua_State; arg: Integer; length: Psize_t): PChar; cdecl;
+  luaL_optlstring:function (L: Plua_State; arg: Integer; const def: PChar; length: Psize_t): PChar; cdecl;
 
-  luaL_check_stack: procedure(L: Plua_State; space: Integer; const msg: PChar); cdecl;
-  luaL_check_type: procedure(L: Plua_State; narg, t: Integer); cdecl;
-  luaL_check_any: procedure(L: Plua_State; narg: Integer); cdecl;
+  luaL_checknumber:function (L: Plua_State; arg: Integer): lua_Number; cdecl;
+  luaL_optnumber:function (L: Plua_State; arg: Integer; def: lua_Number): lua_Number; cdecl;
 
-  luaL_where: procedure(L: Plua_State; level: Integer); cdecl;
-  luaL_error: function(L: Plua_State; const fmt: PChar; argsup: array of pointer): Integer; cdecl;
+  luaL_checkinteger:function (L: Plua_State; arg: Integer): lua_Integer; cdecl;
+  luaL_optinteger:function (L: Plua_State; arg: Integer; def: lua_Integer): lua_Integer; cdecl;
 
-  luaL_findstring: function(name: PChar; const list: PPChar): Integer; cdecl;
+  luaL_check_stack:procedure (L: Plua_State; sz: Integer; const msg: PChar); cdecl;
+  luaL_check_type:procedure (L: Plua_State; arg: Integer; t: Integer); cdecl;
+  luaL_check_any:procedure (L: Plua_State; arg: Integer); cdecl;
 
-  luaL_ref: function(L: Plua_State; t: Integer): Integer; cdecl;
-  luaL_unref: procedure(L: Plua_State; t, ref: Integer); cdecl;
+  luaL_newmetatable:function (L: Plua_State; const tname: PChar): Integer; cdecl;
+  luaL_setmetatable:procedure (L: Plua_State; const tname: PChar); cdecl;
+  luaL_testudata:function (L: Plua_State; ud: Integer; const tname: PChar): Pointer; cdecl;
+  luaL_checkudata:function (L: Plua_State; ud: Integer; const tname: PChar): Pointer; cdecl;
 
-  luaL_loadfile: function(L: Plua_State; const filename: PChar): Integer; cdecl;
+  luaL_where: procedure(L: Plua_State; lvl: Integer); cdecl;
+  luaL_error: function(L: Plua_State; const fmt: PChar; args: array of pointer): Integer; cdecl; //TODO: hmm
 
-  luaL_loadbuffer   : function (L : Plua_State; buff : PAnsiChar; size : size_t;
-                                   name : PAnsiChar; mode : PAnsiChar = nil) : integer; cdecl;
-  luaL_loadbufferx  : function (L : Plua_State; buff : PAnsiChar; size : size_t;
-                                   name : PAnsiChar; mode : PAnsiChar) : integer; cdecl;
-  //luaL_loadbuffer: function(L: Plua_State; const buff: PChar; size: Integer; const name: PChar): Integer; cdecl;
+  luaL_checkoption:function (L: Plua_State; arg: Integer; const cdef: PChar; const lst: PPChar): Integer; cdecl;
 
-  //5.0
-  luaL_setfuncs: procedure(L: Plua_State; lr: PluaL_Reg; nup: Integer); cdecl;
+  luaL_fileresult:function (L: Plua_State; stat: Integer; const fname: PChar): Integer; cdecl;
+  luaL_execresult:function (L: Plua_State; stat: Integer): Integer; cdecl;
 
-  luaL_newstate: function: Plua_State; cdecl;
-  luaL_newmetatable: function(L: Plua_State; const tname: PChar): Integer; cdecl;
-  luaL_setmetatable: procedure(L: Plua_State; const tname: PChar); cdecl;
+  luaL_ref:function (L: Plua_State; t: Integer): Integer; cdecl;
+  luaL_unref:procedure (L: Plua_State; t, ref: Integer); cdecl;
 
-  procedure luaL_getmetatable(L : Plua_State; n : PAnsiChar); inline;
-   procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
-
-(*
-** ===============================================================
-** some useful macros
-** ===============================================================
-*)
-
-procedure luaL_arg_check(L: Plua_State; cond: Boolean; numarg: Integer; extramsg: PChar);
-function luaL_check_string(L: Plua_State; n: Integer): PChar;
-function luaL_opt_string(L: Plua_State; n: Integer; d: PChar): PChar;
-function luaL_check_int(L: Plua_State; n: Integer): Integer;
-function luaL_check_long(L: Plua_State; n: Integer): LongInt;
-function luaL_opt_int(L: Plua_State; n: Integer; d: Double): Integer;
-function luaL_opt_long(L: Plua_State; n: Integer; d: Double): LongInt;
-
-(*
-** {======================================================
-** Generic Buffer manipulation
-** =======================================================
-*)
-
-const
-  LUAL_BUFFERSIZE = 4096;
-
-type
-  luaL_Buffer = record
-    p: PChar;
-    level: Integer;
-    L: Plua_State;
-    buffer: array [0..LUAL_BUFFERSIZE - 1] of Char;
-  end;
-  PluaL_Buffer = ^luaL_Buffer;
-
-procedure luaL_putchar(B: PluaL_Buffer; c: Char);
-
-procedure luaL_addsize(B: PluaL_Buffer; n: Integer);
-
+  luaL_loadfilex:function (L: Plua_State; const filename: PChar; const mode: PChar): Integer; cdecl;
+  function luaL_loadfile(L: Plua_State; f: Pchar): Integer;
 var
-  luaL_buffinit: procedure(L: Plua_State ; B: PluaL_Buffer); cdecl;
-  luaL_prepbuffer: function(B: PluaL_Buffer): PChar; cdecl;
-  luaL_addlstring: procedure(B: PluaL_Buffer; const s: PChar; l: size_t); cdecl;
-  luaL_addstring: procedure(B: PluaL_Buffer; const s: PChar); cdecl;
-  luaL_addvalue: procedure(B: PluaL_Buffer); cdecl;
-  luaL_pushresult: procedure(B: PluaL_Buffer); cdecl;
+  luaL_loadbufferx:function (L : Plua_State; buff: PChar; sz: size_t; name: PChar; mode: PChar): Integer; cdecl;
 
-(*
-** Compatibility macros
-*)
+  luaL_loadstring:function (L : Plua_State; const s: PChar): Integer; cdecl;
 
-procedure luaL_checktype(L: Plua_State; narg, t: Integer);
-procedure luaL_checkany(L: Plua_State; narg: Integer);
+  luaL_newstate:function(): Plua_state; cdecl;
 
-var
-  lua_dofile: function(L: Plua_State; const filename: PChar): Integer; cdecl;
-  lua_dostring: function(L: Plua_State; const str: PChar): Integer; cdecl;
-  lua_dobuffer: function(L: Plua_State; const buff: PChar; size: Integer; const name: PChar): Integer; cdecl;
+  luaL_len:function (L : Plua_State; idx: Integer): lua_Integer; cdecl;
+
+  luaL_gsub:function (L : Plua_State; const s: PChar; const p: PChar; const r: PChar): PChar; cdecl;
+
+  luaL_setfuncs:procedure (L: Plua_State; lr: PluaL_Reg; nup: Integer); cdecl;
+
+  luaL_getsubtable:function (L: Plua_State; idx: Integer; const fname: PChar): Integer; cdecl;
+
+  luaL_traceback:procedure (L: Plua_State; L1: Plua_State; msg: PChar; level: Integer); cdecl;
+
+  luaL_requiref:procedure (L: Plua_State; const modname: PChar; openf: lua_CFunction; glb: Integer); cdecl;
+
+//some useful macros
+  procedure luaL_newlibtable(L: Plua_State; lr: array of luaL_Reg); inline;
+
+  procedure luaL_newlib(L: Plua_State; lr: array of luaL_Reg); inline;
+
+  procedure luaL_arg_check(L: Plua_State; cond: Boolean; numarg: Integer; extramsg: PChar); inline;
+
+  function luaL_check_string(L: Plua_State; n: Integer): PChar; inline;
+  function luaL_opt_string(L: Plua_State; n: Integer; d: PChar): PChar; inline;
+
+  function luaL_typename(L: Plua_State; i: Integer): PChar; inline;
+
+  function luaL_dofile(L: Plua_State; fn: PChar): Integer; inline;
+
+  function luaL_dostring(L: Plua_State; s: PChar): Integer; inline;
+
+  function luaL_getmetatable(L: Plua_State; n: Pchar): Integer; inline;
+
+  function luaL_loadbuffer(L : Plua_State; buff: PChar; sz: size_t; const name: PChar): Integer; inline;
+
+  //depracted
+  procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
+
+  //depracted
+  procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
+
 
 implementation
 
@@ -704,6 +686,42 @@ begin
   luaopen_debug:=nil;
   luaopen_package:=nil;
   luaL_openlibs:=nil;
+  //LuaXLib
+  luaL_checkversion_:=nil;
+  luaL_getmetafield:=nil;
+  luaL_callmeta:=nil;
+  luaL_tolstring:=nil;
+  luaL_argerror:=nil;
+  luaL_checklstring:=nil;
+  luaL_optlstring:=nil;
+  luaL_checknumber:=nil;
+  luaL_optnumber:=nil;
+  luaL_checkinteger:=nil;
+  luaL_optinteger:=nil;
+  luaL_check_stack:=nil;
+  luaL_check_type:=nil;
+  luaL_check_any:=nil;
+  luaL_newmetatable:=nil;
+  luaL_setmetatable:=nil;
+  luaL_testudata:=nil;
+  luaL_checkudata:=nil;
+  luaL_where:=nil;
+  luaL_error:=nil;
+  luaL_checkoption:=nil;
+  luaL_fileresult:=nil;
+  luaL_execresult:=nil;
+  luaL_ref:=nil;
+  luaL_unref:=nil;
+  luaL_loadfilex:=nil;
+  luaL_loadbufferx:=nil;
+  luaL_loadstring:=nil;
+  luaL_newstate:=nil;
+  luaL_len:=nil;
+  luaL_gsub:=nil;
+  luaL_setfuncs:=nil;
+  luaL_getsubtable:=nil;
+  luaL_traceback:=nil;
+  luaL_requiref:=nil;
 end;
 
 procedure LoadLuaProc;
@@ -815,6 +833,42 @@ begin
     luaopen_debug:=GetProcAddress(LuaHandle,'luaopen_debug');
     luaopen_package:=GetProcAddress(LuaHandle,'luaopen_package');
     luaL_openlibs:=GetProcAddress(LuaHandle,'luaL_openlibs');
+    //LuaXLib
+    luaL_checkversion_:=GetProcAddress(LuaHandle,'luaL_checkversion_');
+    luaL_getmetafield:=GetProcAddress(LuaHandle,'luaL_getmetafield');
+    luaL_callmeta:=GetProcAddress(LuaHandle,'luaL_callmeta');
+    luaL_tolstring:=GetProcAddress(LuaHandle,'luaL_tolstring');
+    luaL_argerror:=GetProcAddress(LuaHandle,'luaL_argerror');
+    luaL_checklstring:=GetProcAddress(LuaHandle,'luaL_checklstring');
+    luaL_optlstring:=GetProcAddress(LuaHandle,'luaL_optlstring');
+    luaL_checknumber:=GetProcAddress(LuaHandle,'luaL_checknumber');
+    luaL_optnumber:=GetProcAddress(LuaHandle,'luaL_optnumber');
+    luaL_checkinteger:=GetProcAddress(LuaHandle,'luaL_checkinteger');
+    luaL_optinteger:=GetProcAddress(LuaHandle,'luaL_optinteger');
+    luaL_check_stack:=GetProcAddress(LuaHandle,'luaL_check_stack');
+    luaL_check_type:=GetProcAddress(LuaHandle,'luaL_check_type');
+    luaL_check_any:=GetProcAddress(LuaHandle,'luaL_check_any');
+    luaL_newmetatable:=GetProcAddress(LuaHandle,'luaL_newmetatable');
+    luaL_setmetatable:=GetProcAddress(LuaHandle,'luaL_setmetatable');
+    luaL_testudata:=GetProcAddress(LuaHandle,'luaL_testudata');
+    luaL_checkudata:=GetProcAddress(LuaHandle,'luaL_checkudata');
+    luaL_where:=GetProcAddress(LuaHandle,'luaL_where');
+    luaL_error:=GetProcAddress(LuaHandle,'luaL_error');
+    luaL_checkoption:=GetProcAddress(LuaHandle,'luaL_checkoption');
+    luaL_fileresult:=GetProcAddress(LuaHandle,'luaL_fileresult');
+    luaL_execresult:=GetProcAddress(LuaHandle,'luaL_execresult');
+    luaL_ref:=GetProcAddress(LuaHandle,'luaL_ref');
+    luaL_unref:=GetProcAddress(LuaHandle,'luaL_unref');
+    luaL_loadfilex:=GetProcAddress(LuaHandle,'luaL_loadfilex');
+    luaL_loadbufferx:=GetProcAddress(LuaHandle,'luaL_loadbufferx');
+    luaL_loadstring:=GetProcAddress(LuaHandle,'luaL_loadstring');
+    luaL_newstate:=GetProcAddress(LuaHandle,'luaL_newstate');
+    luaL_len:=GetProcAddress(LuaHandle,'luaL_len');
+    luaL_gsub:=GetProcAddress(LuaHandle,'luaL_gsub');
+    luaL_setfuncs:=GetProcAddress(LuaHandle,'luaL_setfuncs');
+    luaL_getsubtable:=GetProcAddress(LuaHandle,'luaL_getsubtable');
+    luaL_traceback:=GetProcAddress(LuaHandle,'luaL_traceback');
+    luaL_requiref:=GetProcAddress(LuaHandle,'luaL_requiref');
   end;
 end;
 
@@ -975,7 +1029,7 @@ end;
 
   function lua_tostring(L: Plua_State; i: Integer): PChar;
   begin
-    Result := lua_tolstring(L, i, NULL);
+    Result := lua_tolstring(L, i, nil);
   end;
 
   procedure lua_insert(L: Plua_State; idx: Integer);
@@ -995,126 +1049,110 @@ end;
     lua_pop(L, 1);
   end;
 
-//Debug API
-
 //LuaXLib
-procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
-begin
-   luaL_openlib(L,n,lib,0);
-end;
 
-procedure luaL_getmetatable(L : Plua_State; n : PAnsiChar); inline;
-begin
-  write('x1');
-  if (@lua_getfield = nil) then write('pfff');
-     lua_getfield(L, LUA_REGISTRYINDEX, n);
-     write('x2')
-end;
-
-procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
-begin
-
-  writeln('ol1');
-  (*
-  if n <> nil then begin //if empty then dont call setglobal
-  lua_getglobal(L, n);
-  writeln('ol2');
-  if (lua_isnil(L, -1)) then begin
-    writeln('ol2.1');
-    lua_pop(L, 1);
-    writeln('ol2.2');
-    lua_newtable(L);
-    writeln('ol2.3');
+  procedure luaL_checkversion(L: PLua_State);
+  begin
+    luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES);
   end;
-  writeln('ol3');
+
+  function luaL_loadfile(L: Plua_State; f: Pchar): Integer;
+  begin
+    Result := luaL_Loadfilex(L,f,nil);
   end;
-  *)
-  luaL_setfuncs(L, lr, 0);
-  writeln('ol4');
-  if n <> nil then //if empty then dont call setglobal
-  lua_setglobal(L, n);
-  writeln('ol5');
-end;
 
-procedure luaL_arg_check(L: Plua_State; cond: Boolean; numarg: Integer; extramsg: PChar);
-begin
-  if not cond then
-    luaL_argerror(L, numarg, extramsg)
-end;
+//Some usefull macros
+  procedure luaL_newlibtable(L: Plua_State; lr: array of luaL_Reg);
+  begin
+     lua_createtable(L, 0, High(lr));
+  end;
 
-function luaL_check_string(L: Plua_State; n: Integer): PChar;
-begin
-  Result := luaL_check_lstr(L, n, nil)
-end;
+  procedure luaL_newlib(L: Plua_State; lr: array of luaL_Reg);
+  begin
+    luaL_checkversion(L);
+    luaL_newlibtable(L, lr);
+    luaL_setfuncs(L, @lr, 0);
+  end;
 
-function luaL_opt_string(L: Plua_State; n: Integer; d: PChar): PChar;
-begin
-  Result := luaL_opt_lstr(L, n, d, nil)
-end;
+  procedure luaL_arg_check(L: Plua_State; cond: Boolean; numarg: Integer; extramsg: PChar);
+  begin
+    if not cond then
+      luaL_argerror(L, numarg, extramsg)
+  end;
 
-function luaL_check_int(L: Plua_State; n: Integer): Integer;
-begin
-  Result := Integer(Trunc(luaL_check_number(L, n)))
-end;
+  function luaL_check_string(L: Plua_State; n: Integer): PChar;
+  begin
+    Result := luaL_checklstring(L, n, nil)
+  end;
 
-function luaL_check_long(L: Plua_State; n: Integer): LongInt;
-begin
-  Result := LongInt(Trunc(luaL_check_number(L, n)))
-end;
+  function luaL_opt_string(L: Plua_State; n: Integer; d: PChar): PChar;
+  begin
+    Result := luaL_optlstring(L, n, d, nil)
+  end;
 
-function luaL_opt_int(L: Plua_State; n: Integer; d: Double): Integer;
-begin
-  Result := Integer(Trunc(luaL_opt_number(L, n, d)))
-end;
+  function luaL_typename(L: Plua_State; i: Integer): PChar;
+  begin
+    Result := lua_typename(L, lua_type(L,(i)));
+  end;
 
-function luaL_opt_long(L: Plua_State; n: Integer; d: Double): LongInt;
-begin
-  Result := LongInt(Trunc(luaL_opt_number(L, n, d)))
-end;
+  function luaL_dofile(L: Plua_State; fn: PChar): Integer;
+  begin
+    Result := luaL_loadfile(L, fn);
+    if Result = 0 then
+      Result := lua_pcall(L, 0, LUA_MULTRET, 0);
+  end;
 
-procedure luaL_putchar(B: PluaL_Buffer; c: Char);
-begin
-  if Cardinal(@(B^.p)) < (Cardinal(@(B^.buffer[0])) + LUAL_BUFFERSIZE) then
-    luaL_prepbuffer(B);
-  B^.p[1] := c;
-  B^.p := B^.p + 1;
-end;
+  function luaL_dostring(L: Plua_State; s: PChar): Integer;
+  begin
+    Result := luaL_loadstring(L, s);
+    if Result = 0 then
+      Result := lua_pcall(L, 0, LUA_MULTRET, 0);
+  end;
 
-procedure luaL_addsize(B: PluaL_Buffer; n: Integer);
-begin
-  B^.p := B^.p + n;
-end;
+  function luaL_getmetatable(L: Plua_State; n: Pchar): Integer;
+  begin
+    Result := lua_getfield(L, LUA_REGISTRYINDEX, n);
+  end;
 
-procedure luaL_checktype(L: Plua_State; narg, t: Integer);
-begin
-  luaL_checktype(L, narg, t);
-end;
+  function luaL_loadbuffer(L : Plua_State; buff: PChar; sz: size_t; const name: PChar): Integer;
+  begin
+    Result := luaL_loadbufferx(L,buff,sz,name,nil);
+  end;
 
-procedure luaL_checkany(L: Plua_State; narg: Integer);
-begin
-  luaL_check_any(L, narg);
-end;
+  //depracted
+  procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
+  begin
+    luaL_setfuncs(L, lr, 0);
+    if n <> nil then //if empty then dont call setglobal
+      lua_setglobal(L, n);
+  end;
 
-(******************************************************************************
-* Copyright (C) 2002 Tecgraf, PUC-Rio.  All rights reserved.
-*
-* Permission is hereby granted, free of charge, to any person obtaining
-* a copy of this software and associated documentation files (the
-* "Software"), to deal in the Software without restriction, including
-* without limitation the rights to use, copy, modify, merge, publish,
-* distribute, sublicense, and/or sell copies of the Software, and to
-* permit persons to whom the Software is furnished to do so, subject to
-* the following conditions:
-*
-* The above copyright notice and this permission notice shall be
-* included in all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-******************************************************************************)
+  //depracted
+  procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
+  begin
+    luaL_openlib(L,n,lib,0);
+  end;
+
+  (******************************************************************************
+  * Copyright (C) 1994-2015 Lua.org, PUC-Rio.
+  *
+  * Permission is hereby granted, free of charge, to any person obtaining
+  * a copy of this software and associated documentation files (the
+  * "Software"), to deal in the Software without restriction, including
+  * without limitation the rights to use, copy, modify, merge, publish,
+  * distribute, sublicense, and/or sell copies of the Software, and to
+  * permit persons to whom the Software is furnished to do so, subject to
+  * the following conditions:
+  *
+  * The above copyright notice and this permission notice shall be
+  * included in all copies or substantial portions of the Software.
+  *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  ******************************************************************************)
 end.
