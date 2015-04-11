@@ -26,39 +26,34 @@ const
 {$ENDIF}
 
 //Dynamic loading and unloading of Lua libs
-function LoadLua: Boolean;
-function LoadLuaFrom(FileName: string): Boolean;
-procedure UnLoadLua;
-function LuaLoaded: Boolean;
+function loadLua: Boolean;
+function loadLuaFrom(FileName: string): Boolean;
+procedure unLoadLua;
+function isLuaLoaded: Boolean;
 
 //LuaConf
 
 type
   size_t = Cardinal;
   Psize_t = ^size_t;
-  Pinteger = ^integer;
-  PPchar = ^pchar;
 
 const
-  (* maximum stack available.
-   * CHANGE it if you need a different limit. This limit is arbitrary;
-   * its only purpose is to stop Lua to consume unlimited stack
-   * space (and to reserve some numbers for pseudo-indices).
-   *)
+//maximum stack available.
+//CHANGE it if you need a different limit. This limit is arbitrary;
+//its only purpose is to stop Lua to consume unlimited stack
+//space (and to reserve some numbers for pseudo-indices)
   {$IFDEF CPU64}
     LUAI_MAXSTACK         = 1000000;
   {$ELSE}
     LUAI_MAXSTACK         = 1000000; //C value : 15000
   {$ENDIF}
 
-    LUAI_FIRSTPSEUDOIDX   = (-LUAI_MAXSTACK - 1000);
+  LUAI_FIRSTPSEUDOIDX   = (-LUAI_MAXSTACK - 1000);
 
-
-    (* LUA_IDSIZE gives the maximum size for the description of the source
-    ** of a function in debug information.
-    ** CHANGE it if you want a different size.
-    *)
-    LUA_IDSIZE      = 60;
+//LUA_IDSIZE gives the maximum size for the description of the source
+//of a function in debug information.
+//CHANGE it if you want a different size.
+  LUA_IDSIZE      = 60;
 
 //Lua
 
@@ -73,7 +68,7 @@ const
 //thread status
 const
   LUA_OK          = 0;
-  LUA_YIELD       = 1;
+  LUA_YIELD_      = 1; // LUA_YIELD was suffixed by '_' for avoiding name collision
   LUA_ERRRUN      = 2;
   LUA_ERRSYNTAX   = 3;
   LUA_ERRMEM      = 4;
@@ -81,7 +76,7 @@ const
   LUA_ERRERR      = 6;
 
 type
-  Plua_State = Pointer; //TODO: base on type instead of pointer?
+  Plua_State = Pointer; //TODO: base on type instead of pointer
 
 //basic types
 const
@@ -111,6 +106,7 @@ type
 
 //type of numbers in Lua
   lua_Number = Double;
+  Plua_Number = ^lua_Number;
 
 //type for integer functions
   lua_Integer = Int64;
@@ -168,7 +164,7 @@ const
   LUA_GCISRUNNING         = 9 ;
 
 //lua api functions
-  function lua_open: Plua_State;
+  function lua_open: Plua_State; inline;
 
 var
   //state manipulation
@@ -178,7 +174,7 @@ var
 
   lua_atpanic:function (L: Plua_State; panicf: lua_CFunction): lua_CFunction; cdecl;
 
-  lua_version:function (L: Plua_State): lua_Number; cdecl; //TODO: might be Plua_Number
+  lua_version:function (L: Plua_State): Plua_Number; cdecl;
 
   //basic stack manipulation
   lua_absindex:function (L: Plua_State; idx: Integer): Integer; cdecl;
@@ -255,9 +251,11 @@ var
 
   //'load' and 'call' functions (load and run Lua code)
   lua_callk:procedure (L: Plua_State; nargs: Integer; nresults: Integer; ctx: Integer; k:lua_KFunction); cdecl;
-  //#define lua_call(L,n,r)         lua_callk(L, (n), (r), 0, NULL) //TODO: make procedure
+  procedure lua_call(L: Plua_State; n: Integer; r: Integer); inline;
+var
   lua_pcallk:function (L: Plua_State; nargs: Integer; nresults: Integer; errfunc: Integer; ctx: integer; k:lua_KFunction): Integer; cdecl;
-  //#define lua_pcall(L,n,r,f)      lua_pcallk(L, (n), (r), (f), 0, NULL) //TOOD: make procedure
+  function lua_pcall(L: Plua_State; n: Integer; r: Integer; f: Integer): Integer; inline;
+var
   lua_load:function (L: Plua_State; reader: lua_Reader; dt: Pointer; const chunkname: Pchar; const mode: Pchar): Integer; cdecl;
   lua_dump:function (L: Plua_State; writer: lua_Writer; data: Pointer; strip: Integer): Integer; cdecl;
 
@@ -267,8 +265,9 @@ var
   lua_status: function (L: Plua_State): Integer; cdecl;
   lua_isyieldable: function (L: Plua_State): Integer; cdecl;
 
-  //#define lua_yield(L,n)          lua_yieldk(L, (n), 0, NULL) //TODO: make procedure
+  function lua_yield(L: Plua_State; n: Integer): Integer; inline;
 
+var
   //garbage-collection function and options
   lua_gc: function (L: Plua_State; what: Integer; data: Integer): Integer; cdecl;
 
@@ -282,57 +281,44 @@ var
 
   lua_stringtonumber:function (L: Plua_State; const s: Pchar): size_t; cdecl;
 
-  lua_getallocf:function (L: Plua_State; ud: Pointer): lua_Alloc; cdecl; //TODO: what is void **ud
+  lua_getallocf:function (L: Plua_State; ud: PPointer): lua_Alloc; cdecl;
   lua_setallocf:procedure (L: Plua_State;  f: lua_Alloc; ud: Pointer); cdecl;
 
   //some useful macros
 
-  //#define lua_getextraspace(L)    ((void *)((char *)(L) - LUA_EXTRASPACE))
+  function lua_getextraspace(L: Plua_State): Pointer; inline;
 
-  //#define lua_tonumber(L,i)       lua_tonumberx(L,(i),NULL)
-  //#define lua_tointeger(L,i)      lua_tointegerx(L,(i),NULL)
+  function lua_tonumber(L: Plua_State; i: Integer): lua_Number; inline;
+  function lua_tointeger(L: Plua_State; i: Integer): lua_Integer; inline;
 
-  //#define lua_pop(L,n)            lua_settop(L, -(n)-1)
-  procedure lua_pop(L: Plua_State; n: Integer);
+  procedure lua_pop(L: Plua_State; n: Integer); inline;
 
-  //#define lua_newtable(L)         lua_createtable(L, 0, 0)
+  procedure lua_newtable(L: Plua_State); inline;
 
-  //#define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
-  procedure lua_register(L: Plua_State; const n: PChar; f: lua_CFunction);
+  procedure lua_register(L: Plua_State; const n: PChar; f: lua_CFunction); inline;
 
-  //#define lua_pushcfunction(L,f)  lua_pushcclosure(L, (f), 0)
-  procedure lua_pushcfunction(L: Plua_State; f: lua_CFunction);
+  procedure lua_pushcfunction(L: Plua_State; f: lua_CFunction); inline;
 
-  //#define lua_isfunction(L,n)     (lua_type(L, (n)) == LUA_TFUNCTION)
-  function lua_isfunction(L: Plua_State; n: Integer): Boolean;
-  //#define lua_istable(L,n)        (lua_type(L, (n)) == LUA_TTABLE)
-  function lua_istable(L: Plua_State; n: Integer): Boolean;
-  //#define lua_islightuserdata(L,n)        (lua_type(L, (n)) == LUA_TLIGHTUSERDATA)
-  function lua_islightuserdata(L: Plua_State; n: Integer): Boolean;
-  //#define lua_isnil(L,n)          (lua_type(L, (n)) == LUA_TNIL)
-  function lua_isnil(L: Plua_State; n: Integer): Boolean;
-  //#define lua_isboolean(L,n)      (lua_type(L, (n)) == LUA_TBOOLEAN)
-  function lua_isboolean(L: Plua_State; n: Integer): Boolean;
-  //#define lua_isthread(L,n)       (lua_type(L, (n)) == LUA_TTHREAD)
-  //#define lua_isnone(L,n)         (lua_type(L, (n)) == LUA_TNONE)
-  function lua_isnone(L: Plua_State; n: Integer): Boolean;
-  //#define lua_isnoneornil(L, n)   (lua_type(L, (n)) <= 0)
-  function lua_isnoneornil(L: Plua_State; n: Integer): Boolean;
+  function lua_isfunction(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_istable(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_islightuserdata(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_isnil(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_isboolean(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_isthread(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_isnone(L: Plua_State; n: Integer): Boolean; inline;
+  function lua_isnoneornil(L: Plua_State; n: Integer): Boolean; inline;
 
-  //#define lua_pushliteral(L, s)   lua_pushlstring(L, "" s, (sizeof(s)/sizeof(char))-1)
-  procedure lua_pushliteral(L: Plua_State; s: PChar);
+  procedure lua_pushliteral(L: Plua_State; s: PChar); inline;
 
-  //#define lua_pushglobaltable(L)  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS)
+  procedure lua_pushglobaltable(L: Plua_State); inline;
 
-  //#define lua_tostring(L,i)       lua_tolstring(L, (i), NULL)
+  function lua_tostring(L: Plua_State; i: Integer): PChar; inline;
 
+  procedure lua_insert(L: Plua_State; idx: Integer); inline;
 
-  //#define lua_insert(L,idx)       lua_rotate(L, (idx), 1)
+  procedure lua_remove(L: Plua_State; idx: Integer); inline;
 
-  //#define lua_remove(L,idx)       (lua_rotate(L, (idx), -1), lua_pop(L, 1))
-
-  //#define lua_replace(L,idx)      (lua_copy(L, -1, (idx)), lua_pop(L, 1))
-
+  procedure lua_replace(L: Plua_State; idx: Integer); inline;
 
   //compatibility macros and functions
   {$IFDEF LUA_COMPAT_APIINTCASTS}
@@ -398,46 +384,66 @@ var
   lua_gethookcount:function (L: Plua_State): Integer; cdecl;
 
 //LuaLib
+var
+  luaopen_base:function(L: Plua_State): Integer; cdecl;
+
 const
   LUA_COLIBNAME = 'coroutine';
-
 var
-  luaopen_base: function(L: Plua_State): LongBool; cdecl;
+  luaopen_coroutine:function(L: Plua_State): Integer; cdecl;
 
 const
   LUA_TABLIBNAME = 'table';
-
 var
-  luaopen_table: function(L: Plua_State): LongBool; cdecl;
+  luaopen_table:function(L: Plua_State): Integer; cdecl;
 
 const
   LUA_IOLIBNAME = 'io';
-  LUA_OSLIBNAME = 'os';
-
 var
-  luaopen_io: function(L: Plua_State): LongBool; cdecl;
+  luaopen_io:function(L: Plua_State): Integer; cdecl;
 
 const
-  LUA_STRLINAME = 'string';
-
+  LUA_OSLIBNAME = 'os';
 var
-  luaopen_string: function(L: Plua_State): LongBool; cdecl;
+  luaopen_os:function(L: Plua_State): Integer; cdecl;
+
+const
+  LUA_STRLIBNAME = 'string';
+var
+  luaopen_string:function(L: Plua_State): Integer; cdecl;
+
+const
+  LUA_UTF8LIBNAME = 'utf8';
+var
+  luaopen_utf8:function(L: Plua_State): Integer; cdecl;
+
+const
+  LUA_BITLIBNAME = 'bit32';
+var
+  luaopen_bit32:function(L: Plua_State): Integer; cdecl;
 
 const
   LUA_MATHLIBNAME = 'math';
-
 var
-  luaopen_math: function(L: Plua_State): LongBool; cdecl;
+  luaopen_math:function(L: Plua_State): Integer; cdecl;
 
 const
   LUA_DBLIBNAME = 'debug';
-
 var
-  luaopen_debug: function(L: Plua_State): LongBool; cdecl;
+  luaopen_debug:function(L: Plua_State): Integer; cdecl;
 
-(*==============================================================================
-    LAUXLIB.PAS
-==============================================================================*)
+const
+  LUA_LOADLIBNAME = 'package';
+var
+  luaopen_package:function(L: Plua_State): Integer; cdecl;
+
+//open all previous libraries
+  luaL_openlibs:procedure (L: Plua_State); cdecl;
+
+//LuaXLib
+const
+   LUA_ERRFILE   = LUA_ERRERR + 1;   // extra error code for 'luaL_load'
+
 type
   luaL_reg = record
     name: PChar;
@@ -445,19 +451,24 @@ type
   end;
   PluaL_reg = ^luaL_reg;
 
+const
+  LUAL_NUMSIZES = sizeof(lua_Integer)*16 + sizeof(lua_Number);
+  // pre-defined references
+  LUA_NOREF  = -2;
+  LUA_REFNIL = -1;
+
   procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
 
 var
-  //luaL_openlib: procedure(L: Plua_State; const libname: PChar; const lr: PluaL_reg; nup: Integer); cdecl;
-
-
-
-
-  //luaL_openlib: procedure(L: Plua_State; const lr: PluaL_reg; nup: Integer); cdecl;
-  //luaL_opennamedlib: procedure(L: Plua_State; const libname: PChar; const lr: PluaL_reg; nup: Integer); cdecl;
+  luaL_checkversion_:procedure (L: Plua_State; ver: lua_Number; sz: size_t); cdecl;
+  //define luaL_checkversion(L) luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES) //TODO implement procedure
+var
+  luaL_getmetafield:function (L: Plua_State; obj: Integer; const e: PChar): Integer; cdecl;
   luaL_callmeta: function(L: Plua_State; obj: Integer; const event: PChar): Integer; cdecl;
-  luaL_typerror: function(L: Plua_State; narg: Integer; const tname: PChar): Integer; cdecl;
-  luaL_argerror: function(L: Plua_State; numarg: Integer; const extramsg: PChar): Integer; cdecl;
+  luaL_tolstring:function (L: Plua_State; idx: Integer; len: size_t): pchar; cdecl;
+  luaL_argerror: function(L: Plua_State; arg: Integer; const extramsg: PChar): Integer; cdecl;
+
+  //contintue here
   luaL_check_lstr: function(L: Plua_State; numArg: Integer; len: Psize_t): PChar; cdecl;
   luaL_opt_lstr: function(L: Plua_State; numArg: Integer; const def: PChar; len: Psize_t): PChar; cdecl;
   luaL_check_number: function(L: Plua_State; numArg: Integer): lua_Number; cdecl;
@@ -492,9 +503,6 @@ var
 
   procedure luaL_getmetatable(L : Plua_State; n : PAnsiChar); inline;
    procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
-   function lua_tostring(L : Plua_State; i : integer) : PAnsiChar; inline;
-  function lua_tonumber(L : Plua_State; i : integer) : lua_Number; inline;
-
 
 (*
 ** ===============================================================
@@ -561,6 +569,7 @@ uses
   Windows;
 {$ENDIF}
 
+//Dynamic loading and unloading of Lua libs
 {$IFDEF LINUX}
 const
   INVALID_MODULE_HANDLE = nil;
@@ -587,15 +596,10 @@ end;
 
 var
   LuaHandle: LibHandle = INVALID_MODULE_HANDLE;
-  LuaLibHandle: LibHandle = INVALID_MODULE_HANDLE;
-
-function lua_open: Plua_State; //lua_open is depracted this is a replacement
-begin
-  Result :=luaL_newstate;
-end;
 
 procedure ClearLuaProc;
 begin
+  //Lua
   lua_newstate:=nil;
   lua_close:=nil;
   lua_newthread:=nil;
@@ -687,12 +691,26 @@ begin
   lua_gethook:=nil;
   lua_gethookmask:=nil;
   lua_gethookcount:=nil;
+  //LuaLib
+  luaopen_base:=nil;
+  luaopen_coroutine:=nil;
+  luaopen_table:=nil;
+  luaopen_io:=nil;
+  luaopen_os:=nil;
+  luaopen_string:=nil;
+  luaopen_utf8:=nil;
+  luaopen_bit32:=nil;
+  luaopen_math:=nil;
+  luaopen_debug:=nil;
+  luaopen_package:=nil;
+  luaL_openlibs:=nil;
 end;
 
 procedure LoadLuaProc;
 begin
   if LuaHandle <> INVALID_MODULE_HANDLE then
   begin
+    //Lua
     lua_newstate:=GetProcAddress(LuaHandle,'lua_newstate');
     lua_close:=GetProcAddress(LuaHandle,'lua_close');
     lua_newthread:=GetProcAddress(LuaHandle,'lua_newthread');
@@ -784,144 +802,202 @@ begin
     lua_gethook:=GetProcAddress(LuaHandle,'lua_gethook');
     lua_gethookmask:=GetProcAddress(LuaHandle,'lua_gethookmask');
     lua_gethookcount:=GetProcAddress(LuaHandle,'lua_gethookcount');
+    //LuaLibs
+    luaopen_base:=GetProcAddress(LuaHandle,'luaopen_base');
+    luaopen_coroutine:=GetProcAddress(LuaHandle,'luaopen_coroutine');
+    luaopen_table:=GetProcAddress(LuaHandle,'luaopen_table');
+    luaopen_io:=GetProcAddress(LuaHandle,'luaopen_io');
+    luaopen_os:=GetProcAddress(LuaHandle,'luaopen_os');
+    luaopen_string:=GetProcAddress(LuaHandle,'luaopen_string');
+    luaopen_utf8:=GetProcAddress(LuaHandle,'luaopen_utf8');
+    luaopen_bit32:=GetProcAddress(LuaHandle,'luaopen_bit32');
+    luaopen_math:=GetProcAddress(LuaHandle,'luaopen_math');
+    luaopen_debug:=GetProcAddress(LuaHandle,'luaopen_debug');
+    luaopen_package:=GetProcAddress(LuaHandle,'luaopen_package');
+    luaL_openlibs:=GetProcAddress(LuaHandle,'luaL_openlibs');
   end;
 end;
 
-function LoadLua: Boolean;
-begin
-  if LuaHandle = INVALID_MODULE_HANDLE then
-    Result := LoadLuaFrom(LUA_NAME)
-  else
-    Result := True
-end;
-
-function LoadLuaFrom(FileName: string): Boolean;
-begin
-  ClearLuaProc;
-  LuaHandle := OpenLib(PChar(FileName));
-  if LuaHandle <> INVALID_MODULE_HANDLE then
+  function loadLua: Boolean;
   begin
-    LoadLuaProc;
-    Result := True
-  end
-  else
-    Result := False
-end;
-
-procedure UnLoadLua;
-begin
-  if LuaHandle <> INVALID_MODULE_HANDLE then
-    FreeLibrary(LuaHandle);
-  LuaHandle := INVALID_MODULE_HANDLE;
-  ClearLuaProc;
-end;
-
-function LuaLoaded: Boolean;
-begin
-  Result := LuaHandle <> INVALID_MODULE_HANDLE
-end;
-
-procedure ClearLuaLibProc;
-begin
-  luaopen_base := nil;
-  luaopen_table := nil;
-  luaopen_io := nil;
-  luaopen_string := nil;
-  luaopen_math := nil;
-  luaopen_debug := nil;
-  //luaL_openlib := nil;
-
-//  luaL_opennamedlib := nil;
-  luaL_callmeta := nil;
-  luaL_typerror := nil;
-  luaL_argerror := nil;
-  luaL_check_lstr := nil;
-  luaL_opt_lstr := nil;
-  luaL_check_number := nil;
-  luaL_opt_number := nil;
-  luaL_check_stack := nil;
-  luaL_check_type := nil;
-  luaL_check_any := nil;
-  luaL_where := nil;
-  luaL_error := nil;
-  luaL_findstring := nil;
-  luaL_ref := nil;
-  luaL_unref := nil;
-  luaL_loadfile := nil;
-  luaL_loadbuffer := nil;
-  luaL_loadbufferx := nil;
-  luaL_buffinit := nil;
-  luaL_prepbuffer := nil;
-  luaL_addlstring := nil;
-  luaL_addstring := nil;
-  luaL_addvalue := nil;
-  luaL_pushresult := nil;
-  lua_dofile := nil;
-  lua_dostring := nil;
-  lua_dobuffer := nil;
-
-  luaL_newstate:= nil;
-  luaL_newmetatable := nil;
-  luaL_setmetatable := nil;
-
-  luaL_setfuncs := nil;
-end;
-
-procedure LoadLuaLibProc;
-begin
-  if LuaLibHandle <> INVALID_MODULE_HANDLE then
-  begin
-    luaopen_base := GetProcAddress(LuaLibHandle, 'luaopen_base');
-    luaopen_table := GetProcAddress(LuaLibHandle, 'luaopen_table');
-    luaopen_io := GetProcAddress(LuaLibHandle, 'luaopen_io');
-    luaopen_string := GetProcAddress(LuaLibHandle, 'luaopen_string');
-    luaopen_math := GetProcAddress(LuaLibHandle, 'luaopen_math');
-    luaopen_debug := GetProcAddress(LuaLibHandle, 'luaopen_debug');
-    //luaL_openlib := GetProcAddress(LuaLibHandle, 'luaL_openlib');
-
-//    luaL_opennamedlib := GetProcAddress(LuaLibHandle, 'luaL_opennamedlib');
-    luaL_callmeta := GetProcAddress(LuaLibHandle, 'luaL_callmeta');
-    luaL_typerror := GetProcAddress(LuaLibHandle, 'luaL_typerror');
-    luaL_argerror := GetProcAddress(LuaLibHandle, 'luaL_argerror');
-    luaL_check_lstr := GetProcAddress(LuaLibHandle, 'luaL_check_lstr');
-    luaL_opt_lstr := GetProcAddress(LuaLibHandle, 'luaL_opt_lstr');
-    luaL_check_number := GetProcAddress(LuaLibHandle, 'luaL_check_number');
-    luaL_opt_number := GetProcAddress(LuaLibHandle, 'luaL_opt_number');
-    luaL_check_stack := GetProcAddress(LuaLibHandle, 'luaL_check_stack');
-    luaL_check_type := GetProcAddress(LuaLibHandle, 'luaL_check_type');
-    luaL_check_any := GetProcAddress(LuaLibHandle, 'luaL_check_any');
-    luaL_where := GetProcAddress(LuaLibHandle, 'luaL_where');
-    luaL_error := GetProcAddress(LuaLibHandle, 'luaL_error');
-    luaL_findstring := GetProcAddress(LuaLibHandle, 'luaL_findstring');
-    luaL_ref := GetProcAddress(LuaLibHandle, 'luaL_ref');
-    luaL_unref := GetProcAddress(LuaLibHandle, 'luaL_unref');
-    luaL_loadfile := GetProcAddress(LuaLibHandle, 'luaL_loadfile');
-    luaL_loadbuffer         := GetProcAddress(LuaLibHandle, 'luaL_loadbufferx');
-    luaL_loadbufferx        := luaL_loadbuffer;
-
-    luaL_buffinit := GetProcAddress(LuaLibHandle, 'luaL_buffinit');
-    luaL_prepbuffer := GetProcAddress(LuaLibHandle, 'luaL_prepbuffer');
-    luaL_addlstring := GetProcAddress(LuaLibHandle, 'luaL_addlstring');
-    luaL_addstring := GetProcAddress(LuaLibHandle, 'luaL_addstring');
-    luaL_addvalue := GetProcAddress(LuaLibHandle, 'luaL_addvalue');
-    luaL_pushresult := GetProcAddress(LuaLibHandle, 'luaL_pushresult');
-    lua_dofile := GetProcAddress(LuaLibHandle, 'lua_dofile');
-    lua_dostring := GetProcAddress(LuaLibHandle, 'lua_dostring');
-    lua_dobuffer := GetProcAddress(LuaLibHandle, 'lua_dobuffer');
-
-    writeln('x');
-    //5.0
-    luaL_newstate:= GetProcAddress(LuaLibHandle, 'luaL_newstate');
-    luaL_newmetatable := GetProcAddress(LuaLibHandle, 'luaL_newmetatable');
-
-    luaL_setmetatable := GetProcAddress(LuaLibHandle, 'luaL_setmetatable');
-
-    luaL_setfuncs := GetProcAddress(LuaLibHandle,'luaL_setfuncs');
-
-    writeln('y');
+    if LuaHandle = INVALID_MODULE_HANDLE then
+      Result := LoadLuaFrom(LUA_NAME)
+    else
+      Result := True
   end;
-end;
 
+  function loadLuaFrom(FileName: string): Boolean;
+  begin
+    ClearLuaProc;
+    LuaHandle := OpenLib(PChar(FileName));
+    if LuaHandle <> INVALID_MODULE_HANDLE then
+    begin
+      LoadLuaProc;
+      Result := True
+    end
+    else
+      Result := False
+  end;
+
+  procedure unLoadLua;
+  begin
+    if LuaHandle <> INVALID_MODULE_HANDLE then
+      FreeLibrary(LuaHandle);
+    LuaHandle := INVALID_MODULE_HANDLE;
+    ClearLuaProc;
+  end;
+
+  function isLuaLoaded: Boolean;
+  begin
+    Result := LuaHandle <> INVALID_MODULE_HANDLE
+  end;
+
+//Lua
+
+//lua_open is depracted this is a replacement
+  function lua_open: Plua_State;
+  begin
+    Result :=luaL_newstate;
+  end;
+
+//pseudo-indices
+  function lua_upvalueindex(I: Integer): Integer;
+  begin
+    Result := LUA_REGISTRYINDEX - i;
+  end;
+
+//'load' and 'call' functions (load and run Lua code)
+  procedure lua_call(L: Plua_State; n: Integer; r: Integer);
+  begin
+    lua_callk(L,n,r,0,nil);
+  end;
+
+  function lua_pcall(L: Plua_State; n: Integer; r: Integer; f: Integer): Integer;
+  begin
+    result := lua_pcallk(L,n,r,f,0,nil);
+  end;
+
+//coroutine functions
+  function lua_yield(L: Plua_State; n: Integer): Integer;
+  begin
+    result := lua_yieldk(L,n,0,nil);
+  end;
+
+//some useful macros
+
+  function lua_getextraspace(L: Plua_State): Pointer;
+  const
+    LUA_EXTRASPACE = sizeof(Pointer);
+  begin
+    Result := L - LUA_EXTRASPACE; //hmm how does this magic work in c
+  end;
+
+  function lua_tonumber(L: Plua_State; i: Integer): lua_Number;
+  begin
+    Result := lua_tonumberx(L, i, nil);
+  end;
+
+  function lua_tointeger(L: Plua_State; i: Integer): lua_Integer;
+  begin
+    Result := lua_tointegerx(L, i, nil);
+  end;
+
+  procedure lua_pop(L: Plua_State; n: Integer);
+  begin
+    lua_settop(L, -n - 1);
+  end;
+
+  procedure lua_newtable(L: Plua_State);
+  begin
+    lua_createtable(L,0,0);
+  end;
+
+  procedure lua_register(L: Plua_State; const n: PChar; f: lua_CFunction);
+  begin
+    lua_pushcfunction(L,f);
+    lua_setglobal(L, n);
+  end;
+
+  procedure lua_pushcfunction(L: Plua_State; f: lua_CFunction);
+  begin
+    lua_pushcclosure(L, f, 0);
+  end;
+
+  function lua_isfunction(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TFUNCTION;
+  end;
+
+  function lua_istable(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TTABLE;
+  end;
+
+  function lua_islightuserdata(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TLIGHTUSERDATA;
+  end;
+
+  function lua_isnil(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TNIL;
+  end;
+
+  function lua_isboolean(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TBOOLEAN;
+  end;
+
+  function lua_isthread(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TTHREAD;
+  end;
+
+  function lua_isnone(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) = LUA_TNONE;
+  end;
+
+  function lua_isnoneornil(L: Plua_State; n: Integer): Boolean;
+  begin
+    Result := lua_type(L, n) <= 0;
+  end;
+
+  procedure lua_pushliteral(L: Plua_State; s: PChar);
+  begin
+    lua_pushlstring(L, s, (SizeOf(s) div SizeOf(Char)) - 1);
+  end;
+
+  procedure lua_pushglobaltable(L: Plua_State);
+  begin
+    lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
+  end;
+
+  function lua_tostring(L: Plua_State; i: Integer): PChar;
+  begin
+    Result := lua_tolstring(L, i, NULL);
+  end;
+
+  procedure lua_insert(L: Plua_State; idx: Integer);
+  begin
+    lua_rotate(L, (idx), 1);
+  end;
+
+  procedure lua_remove(L: Plua_State; idx: Integer);
+  begin
+    lua_rotate(L, (idx), -1);
+    lua_pop(L, 1);
+  end;
+
+  procedure lua_replace(L: Plua_State; idx: Integer);
+  begin
+    lua_copy(L, -1, (idx));
+    lua_pop(L, 1);
+  end;
+
+//Debug API
+
+//LuaXLib
 procedure luaL_register(L : Plua_State; n : PChar; lib : PLuaL_Reg); inline;
 begin
    luaL_openlib(L,n,lib,0);
@@ -933,16 +1009,6 @@ begin
   if (@lua_getfield = nil) then write('pfff');
      lua_getfield(L, LUA_REGISTRYINDEX, n);
      write('x2')
-end;
-
-function lua_tostring(L : Plua_State; i : integer) : PAnsiChar; inline;
-begin
-     Result := lua_tolstring(L, i, 0);
-end;
-
-function lua_tonumber(L : Plua_State; i : integer) : lua_Number; inline;
-begin
-     Result := lua_tonumberx(L,i,nil);
 end;
 
 procedure luaL_openlib(L: Plua_State; const n: PChar; lr: PluaL_reg; nup: Integer); inline;
@@ -970,150 +1036,6 @@ begin
   writeln('ol5');
 end;
 
-(*==============================================================================
-    LUA.PAS
-==============================================================================*)
-function lua_upvalueindex(I: Integer): Integer;
-begin
-  Result := LUA_REGISTRYINDEX - i;
-end;
-
-procedure lua_boxpointer(L: Plua_State; u: Pointer);
-type
-  PPointer = ^Pointer;
-begin
-  PPointer(lua_newuserdata(L, SizeOf(Pointer)))^ := u;
-end;
-
-function lua_unboxpointer(L: Plua_State; i: Integer): Pointer;
-type
-  PPointer = ^Pointer;
-begin
-  Result := PPointer(lua_touserdata(L, i))^;
-end;
-
-procedure lua_pop(L: Plua_State; n: Integer);
-begin
-  lua_settop(L, -n - 1);
-end;
-
-procedure lua_register(L: Plua_State; const n: PChar; f: lua_CFunction);
-begin
-  //lua_pushstring(L, n);
-  //lua_pushcfunction(L, f);
-  //lua_settable(L, LUA_GLOBALSINDEX);
-  lua_pushcfunction(L,f);
-  lua_setglobal(L, n);
-end;
-
-procedure lua_pushcfunction(L: Plua_State; f: lua_CFunction);
-begin
-  lua_pushcclosure(L, f, 0);
-end;
-
-function lua_isfunction(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) = LUA_TFUNCTION;
-end;
-
-function lua_istable(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) = LUA_TTABLE;
-end;
-
-function lua_islightuserdata(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) = LUA_TLIGHTUSERDATA;
-end;
-
-function lua_isnil(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) = LUA_TNIL;
-end;
-
-function lua_isboolean(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) = LUA_TBOOLEAN;
-end;
-
-function lua_isnone(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) = LUA_TNONE;
-end;
-
-function lua_isnoneornil(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_type(L, n) <= 0;
-end;
-
-procedure lua_pushliteral(L: Plua_State; s: PChar);
-begin
-  lua_pushlstring(L, s, (SizeOf(s) div SizeOf(Char)) - 1);
-end;
-
-procedure lua_getregistry(L: Plua_State);
-begin
-  lua_pushvalue(L, LUA_REGISTRYINDEX);
-end;
-
-//procedure lua_setglobal(L: Plua_State; const s: PChar);
-//begin
-//  lua_pushstring(L, s);
-//  lua_insert(L, -2);
-//  lua_settable(L, LUA_GLOBALSINDEX);
-//end;
-
-//procedure lua_getglobal(L: Plua_State; const s: PChar);
-//begin
-//  lua_pushstring(L, s);
-//  lua_gettable(L, LUA_GLOBALSINDEX);
-//end;
-
-function isnull(L: Plua_State; n: Integer): Boolean;
-begin
-  Result := lua_isnone(L, n);
-end;
-
-function lua_ref(L: Plua_State; lock: Integer): Integer;
-begin
-  Result := 0;
-  if lock <> 0 then
-  begin
-    Result := luaL_ref(L, LUA_REGISTRYINDEX);
-  end
-  else
-  begin
-    lua_pushstring(L, PChar('unlocked references are obsolete'));
-    lua_error(L);
-  end;
-end;
-
-procedure lua_unref(L: Plua_State; ref: Integer);
-begin
-  luaL_unref(L, LUA_REGISTRYINDEX, ref);
-end;
-
-procedure lua_getref(L: Plua_State; ref: Integer);
-begin
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-end;
-
-(*
-** {======================================================================
-** Debug API
-** =======================================================================
-*)
-
-
-
-//function lua_getmaskcount(mask: LongWord): LongWord;
-//begin
-//  Result := mask shr 8;
-//end;
-
-(*==============================================================================
-    LAUXLIB.PAS
-==============================================================================*)
 procedure luaL_arg_check(L: Plua_State; cond: Boolean; numarg: Integer; extramsg: PChar);
 begin
   if not cond then
