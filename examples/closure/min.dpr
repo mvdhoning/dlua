@@ -49,6 +49,28 @@ begin
   Result := 1; //not needed?
 end;
 
+function prop(L: Plua_state): Integer; cdecl;
+var
+  val: double;
+  val2: double;
+begin
+  writeln('prop called');
+  val := lua_tonumber(L, lua_upvalueindex(1)); //get the current value assigned to the current counter
+
+  //read back property set at class level
+  luaL_newmetatable(L, 'delphi.test');
+  lua_pushliteral(L, 'j');
+  lua_gettable(L, -2);
+  val2:=lua_tonumber(L,lua_getfield(L,-2,'j')); //feels wierd using j twice
+
+  writeln('test'+floattostr(val2));
+
+  lua_pushnumber(L, val2);  // new value
+  lua_pushvalue(L, -1);  // duplicate it
+  lua_replace(L, lua_upvalueindex(1));  // update upvalue
+  Result := 1; //not needed?
+end;
+
 //TODO: do something more fancy then a counter (e.g. simulate a more complete class)
 
 function lua_counter_create(L: Plua_state): Integer; cdecl;
@@ -78,7 +100,8 @@ begin
   //function test
   lua_pushnumber(L, 0);
 
-  luaL_getmetatable(L, 'delphi.test');
+  luaL_newmetatable(L, 'delphi.test');
+  //luaL_getmetatable(L, 'delphi.test');
   //lua_getfield(L, LUA_REGISTRYINDEX, 'delphi.test');
   writeln('1');
   lua_setmetatable(L, -2);
@@ -86,7 +109,8 @@ begin
   lua_settable(L, -3);
   writeln('3');
 
-  lua_pushstring(L, 'get');
+  //lua_pushstring(L, 'get');
+  lua_pushliteral(L, 'get');
   writeln('4');
 
   //lua_pushlightuserdata (L, this); //add the/an object to the stack
@@ -97,10 +121,29 @@ begin
   lua_settable(L, -3);
 
   //property test
+  //lua_pushliteral(L, 'get');
+  //lua_gettable(L, -3);
   lua_pushliteral(L, 'j');
   lua_pushnumber(L, 5); //we set value 5 to property j
+  //lua_pushcclosure(L, prop, 1);
   lua_settable(L, -3);
 
+  //lua_pushcfunction(L,prop);
+  //lua_pushliteral(L, 'get');
+  //lua_gettable(L, -3);
+  //lua_gettable(L, -2);
+  //writeln('5');
+  //lua_pushnumber(L, 5); //we set value 5 to property j
+  //lua_pushcclosure(L, prop, 1);
+  //lua_setfield(L, -3, 'GetValue');
+
+
+  lua_pushliteral(L, 'set');
+  writeln('4');
+  lua_pushnumber(L, 0); //push 0 onto the stack
+  lua_pushcclosure(L, prop, 1); //assing c function counter with 1 variable containing 0 from stack
+  // so now we can call print(c1()) in lua what will call the counter function above here
+  lua_settable(L, -3);
 
   writeln('5');
 
