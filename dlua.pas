@@ -7,7 +7,7 @@
 
 //Pascal unit with dynamic loading of lua lib by M van der Honing
 
-unit lua;
+unit dlua;
 
 interface
 
