@@ -14,7 +14,7 @@ program min;
 uses
   SysUtils,
   Classes,
-  lua;
+  dlua;
 
 //function to print lua data via delphi
 function lua_print(L: Plua_State): Integer; cdecl;

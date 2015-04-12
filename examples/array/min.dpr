@@ -14,7 +14,7 @@ program min;
 uses
   SysUtils,
   Classes,
-  lua;
+  dlua;
 
 //function to print lua data via delphi
 function lua_print(L: Plua_State): Integer; cdecl;
@@ -114,7 +114,12 @@ const
 //bring delphi array (class) to lua
 function luaopen_array(L: Plua_state): boolean;
 begin
-  luaL_openlib(L, 'array', arraylib, 0);
+  writeln('a1');
+  //luaL_openlib(L, 'array', arraylib, 0);
+  luaL_newmetatable(L, 'delphi.array');
+  luaL_register(L,'array', arraylib);
+
+  writeln('a3');
   result:=true;
 end;
 
@@ -133,7 +138,6 @@ begin
   WriteLn('load');
   //init lua dll
   LoadLua;
-  LoadLuaLib;
 
   WriteLn('about to open lua');
 
@@ -174,7 +178,6 @@ begin
   //close lua dll
   lua_close(L);
   UnLoadLua;
-  UnLoadLuaLib;
 
   Writeln('press [ENTER] key to exit...');
   ReadLn;
