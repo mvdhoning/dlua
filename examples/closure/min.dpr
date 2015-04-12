@@ -73,6 +73,9 @@ begin
   writeln('create myobject counter');
 
   lua_newtable(L);
+
+  writeln('0');
+  //function test
   lua_pushnumber(L, 0);
 
   luaL_getmetatable(L, 'delphi.test');
@@ -92,6 +95,12 @@ begin
   // so now we can call print(c1()) in lua what will call the counter function above here
 
   lua_settable(L, -3);
+
+  //property test
+  lua_pushliteral(L, 'j');
+  lua_pushnumber(L, 5); //we set value 5 to property j
+  lua_settable(L, -3);
+
 
   writeln('5');
 

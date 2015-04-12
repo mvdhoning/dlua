@@ -1038,7 +1038,7 @@ end;
 
 procedure lua_pushliteral(L: Plua_State; s: PChar);
 begin
-  lua_pushlstring(L, s, (SizeOf(s) div SizeOf(char)) - 1);
+  lua_pushlstring(L, s, Length(s) );
 end;
 
 procedure lua_pushglobaltable(L: Plua_State);
