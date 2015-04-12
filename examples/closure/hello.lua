@@ -11,3 +11,7 @@ print(c2())  --> 1
 print(c2())  --> 2
 
 print(c1())  --> 4
+
+c3 = test:new()
+print(c3.get())
+print(c3.get())

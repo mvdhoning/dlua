@@ -51,19 +51,74 @@ end;
 
 //TODO: do something more fancy then a counter (e.g. simulate a more complete class)
 
-function lua_myobject_create(L: Plua_state): Integer; cdecl;
+function lua_counter_create(L: Plua_state): Integer; cdecl;
 begin
+  writeln('create counter');
+
+
+  //lua_pushlightuserdata (L, this); //add the/an object to the stack
   lua_pushnumber(L, 0); //push 0 onto the stack
   lua_pushcclosure(L, counter, 1); //assing c function counter with 1 variable containing 0 from stack
   // so now we can call print(c1()) in lua what will call the counter function above here
+
+
+
+  writeln('3');
+
   Result:= 1;
 end;
+
+function lua_myobject_create(L: Plua_state): Integer; cdecl;
+begin
+  writeln('create myobject counter');
+
+  lua_newtable(L);
+  lua_pushnumber(L, 0);
+
+  luaL_getmetatable(L, 'delphi.test');
+  //lua_getfield(L, LUA_REGISTRYINDEX, 'delphi.test');
+  writeln('1');
+  lua_setmetatable(L, -2);
+  writeln('2');
+  lua_settable(L, -3);
+  writeln('3');
+
+  lua_pushstring(L, 'get');
+  writeln('4');
+
+  //lua_pushlightuserdata (L, this); //add the/an object to the stack
+  lua_pushnumber(L, 0); //push 0 onto the stack
+  lua_pushcclosure(L, counter, 1); //assing c function counter with 1 variable containing 0 from stack
+  // so now we can call print(c1()) in lua what will call the counter function above here
+
+  lua_settable(L, -3);
+
+  writeln('5');
+
+  Result:= 1;
+end;
+
+const
+  methodslib: array [0..1] of luaL_reg = (
+   (name:'new';func:lua_myobject_create),
+   (name:nil;func:nil)
+   );
+
 
 procedure registerwithlua(L: Plua_State);
 begin
   writeln('register counter');
-  lua_pushcfunction(L,lua_myobject_create);
+  lua_pushcfunction(L,lua_counter_create);
   lua_setglobal(l, 'newCounter'); //so we can now call c1 = newCounter() in lua
+
+  luaL_newmetatable(L, 'delphi.test');
+  luaL_register(L,'test', methodslib);
+
+
+  //lua_pushstring(L, 'maak');
+  //lua_pushcclosure(L, lua_myobject_create, 0); //assing c function counter with 1 variable containing 0 from stack
+
+
 end;
 
 var
