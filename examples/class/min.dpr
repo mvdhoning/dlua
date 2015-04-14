@@ -172,13 +172,85 @@ begin
   result:= 0; // no return values
 end;
 
+function get_int (L: Plua_state; v: Pointer): Integer; cdecl;
+begin
+  lua_pushnumber(L, double(v^));
+  Result:=1;
+end;
+
+function index_handler (L: Plua_state): Integer cdecl;
+var
+  propname:pchar;
+begin
+  writeln('index_handler');
+  // stack has userdata, index
+  lua_pushvalue(L, 2);                     // dup index
+  lua_rawget(L, lua_upvalueindex(1));      // lookup member by name
+  propname:=lua_tostring(L, 2);
+  writeln(propname);
+  (*
+  if (!lua_islightuserdata(L, -1)) {
+    lua_pop(L, 1);                         /* drop value */
+    lua_pushvalue(L, 2);                   /* dup index */
+    lua_gettable(L, lua_upvalueindex(2));  /* else try methods */
+    if (lua_isnil(L, -1))                  /* invalid member */
+      luaL_error(L, "cannot get member '%s'", lua_tostring(L, 2));
+    return 1;
+  }
+  return Xet_call(L);                      /* call get function */
+  *)
+  if propname='lees' then
+    begin
+  lua_pop(L, 1);                         // drop value */
+  lua_pushvalue(L, 2);                   // dup index */
+  //lua_pushnumber(L, 7); //always return 7
+  lua_pushstring(L,'ddd');
+  end;
+  Result := 1;
+end;
+
+function newindex_handler (L: Plua_State): Integer; cdecl;
+var
+  propname:pchar;
+  n:integer;
+begin
+  writeln('newindex_handler');
+  // stack has userdata, index, value
+  lua_pushvalue(L, 2);                     // dup index
+  lua_rawget(L, lua_upvalueindex(1));      // lookup member by name
+  propname:=lua_tostring(L, 2);
+  writeln(propname);
+  //if (!lua_islightuserdata(L, -1))         /* invalid member */
+  //  luaL_error(L, "cannot set member '%s'", lua_tostring(L, 2));
+  //return Xet_call(L);                      /* call set function */
+  if propname='lees' then
+    begin
+     lua_pop(L, 1);                               // drop
+     n := lua_gettop(L);
+     writeln('tried to set: '+lua_tostring(L,n));
+    end;
+  result:=1;
+end;
+
+type
+  my_function = function(L: Plua_State; V: Pointer): integer; cdecl;
+
+  prop_reg = record
+    Name: PChar;
+    func: my_function;
+    offset: size_t;
+  end;
+  Pprop_reg = ^prop_reg;
+
 //structure for delphi array (class) to lua
 const
+  //class methods
   methodslib: array [0..2] of luaL_reg = (
    (name:'new';func:lua_myobject_create),
    (name:'test2';func:lua_myobject_dosomething),
    (name:nil;func:nil)
    );
+  //object methods
   meta_methods: array [0..4] of luaL_reg = (
    (name:'test';func:lua_myobject_dosomething),
    (name:'settext';func:lua_myobject_settext),
@@ -186,46 +258,75 @@ const
    (name:'__gc';func:lua_myobject_delete),
    (name:nil;func:nil)
    );
+  (*
+  your_getters: array [0..1] of prop_reg = (
+   (name:'id';   func:get_int;    offset:@test   ),
+   //(name:'name'; func:get_string; offset:offsetof(your_t,name) ),
+   //(name:'age';  func:get_int;    offset:offsetof(your_t,age)  ),
+   //(name:'x';    func:get_number; offset:offsetof(your_t,x)    ),
+   //(name:'y';    func:get_number; offset:offsetof(your_t,y)    ),
+   (name:nil;func:nil;offset:nil)
+  );
+  *)
 
 procedure registerwithlua(L: Plua_State);
 var
  MetaTable,
  MethodTable,
- Methods : Integer;
+ Methods, Meta : Integer;
 begin
   writeln('a');
-  luaL_newmetatable(L, PosMetaTaleLuaTMyObject);
-  // Metatable.__index = Metatable
-  writeln('b');
-  lua_pushvalue(L, -1);
-  writeln('c');
-  lua_setfield(L, -2, '__index');
-  writeln('d');
-  luaL_register(L, Nil, meta_methods);
-  writeln('e');
+
+  //add methods (class methods)
+  lua_newtable(L);
   luaL_register(L,PosLuaTMyObject, methodslib);
+  methods := lua_gettop(L);
+
+  writeln('b');
+  //add meta methods (object methods)
+  luaL_newmetatable(L, PosMetaTaleLuaTMyObject);
+  luaL_register(L, Nil, meta_methods);
+  meta := lua_gettop(L);
+
+  writeln('c');
+
+  lua_pushliteral(L, '__metatable');
+  lua_pushvalue(L, methods);    // dup methods table
+  lua_rawset(L, meta); // hide metatable: metatable.__metatable = methods
+
+  writeln('d');
+  //setters (mixed with metamethods)
+  lua_pushliteral(L, '__index');
+  lua_pushvalue(L, meta); // upvalue index 1
+
+  //add properties
+  lua_pushstring(L, 'lees'); //add name
+  lua_pushstring(L,nil); //add userdata (for now nothing)
+  lua_settable(L, -3);
+  //end add properties
+
+  lua_pushvalue(L, methods); // upvalue index 2
+
+  lua_pushcclosure(L, index_handler, 2);
+  lua_rawset(L, meta); // metatable.__index = index_handler
+
+  writeln('e');
+  //getters
+  lua_pushliteral(L, '__newindex');
+  lua_newtable(L);              // table for members you can set
+
+  //add properties
+  lua_pushstring(L, 'lees'); //add name
+  lua_pushstring(L,nil); //add userdata (for now nothing)
+  lua_settable(L, -3);
+  //end add properties
+
+  lua_pushcclosure(L, newindex_handler, 1);
+  lua_rawset(L, meta);     // metatable.__newindex = newindex_handler
+
+  lua_pop(L, 1);       // drop metatable
+
   writeln('f');
-  (*
-  //http://lua-users.org/wiki/BindingWithMembersAndMethods
-  //http://www.pascalgamedevelopment.com/showthread.php?2810-using-Delphi-classes-in-lua-)/page2
-  writeln('1');
-  if (@luaL_openlib = nil) then write('Oepsie1');
-  if (@luaL_newmetatable = nil) then write('Oepsie2');
-  if (@luaL_setmetatable = nil) then write('Oepsie3');
-  luaL_newmetatable(L, 'LuaBook.tMyObject'); //leaves new metatable on the stack
-  writeln('2');
-  lua_pushvalue(L, -1); // there are two 'copies' of the metatable on the stack
-  writeln('3');
-  lua_setfield(L, -2, '__index'); // pop one of those copies and assign it to
-                                  // __index field od the 1st metatable
-  writeln('4');
-  if (@luaL_register = nil) then write('Oepsie4');
-  luaL_register(L, nil, meta_methods); // register functions in the metatable
-  //luaL_register(L, nil, methodslib); // register functions in the metatable
-  writeln('5');
-  luaL_register(L, 'tMyObject', methodslib);
-  writeln('6');
-  *)
 
 end;
 
