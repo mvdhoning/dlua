@@ -16,6 +16,70 @@ uses
   Classes,
   dlua;
 
+procedure printTable(L: Plua_State);
+begin
+    WriteLn('***Table***');
+    lua_pushnil(L);
+
+    while lua_next(L, -2) > 0 do
+    begin
+        if(lua_iscfunction(L,-1)=1) then
+          writeln(lua_tostring(L, -2)+' = C')
+        else
+        if(lua_isnoneornil(L,-1)=true) then //does not work?
+          writeln(lua_tostring(L, -2)+' = nil')
+        else
+        if(lua_isstring(L, -1)) then
+          writeln(format('%s = %s', [lua_tostring(L, -2), lua_tostring(L, -1)]))
+        else if(lua_isnumber(L, -1)=1) then
+          writeln(format('%s = %d', [lua_tostring(L, -2), lua_tonumber(L, -1)]))
+        else if(lua_istable(L, -1)) then
+          begin
+            writeln('-->');
+            PrintTable(L);
+            writeln('<--');
+          end;
+        //need more types (e.g. ctypes)
+        //also sometimes crashes...
+        lua_pop(L, 1);
+    end;
+    WriteLn('***END***');
+end;
+
+procedure stackDump (L: Plua_State; Level: integer = 0);
+var
+  i: integer;
+  top: integer;
+  t: integer;
+begin
+  WriteLn('===StackDump===');
+  top := lua_gettop(L);
+  writeln(inttostr(top));
+  for i := 0 to top do begin // repeat for each level
+        t := lua_type(L, i);
+        case (t) of
+
+          LUA_TSTRING:  // strings
+            writeln(lua_tostring(L, i));
+
+          LUA_TNUMBER:  // numbers
+            writeln(lua_tonumber(L, i));
+
+          LUA_TTABLE: begin
+              write('table ==>');
+              if i = 0 then lua_pushnil(L);
+              printTable(L); //table
+          end;
+
+          else  // other values
+            write(lua_typename(L, t));
+        end;
+        //write('  ');  // put a separator
+      end;
+      writeln();  // end the listing
+      WriteLn('===End===');
+end;
+
 //function to print lua data via delphi
 function lua_print(L: Plua_State): Integer; cdecl;
 var
@@ -88,6 +152,7 @@ begin
   writeln('2');
   lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
   lua_setmetatable(L, -2);
+  //lua_setfield(L, -2, '__self');
   writeln('3');
                (*
   //lua_getmetatable(L,metatable);
@@ -204,8 +269,17 @@ begin
   lua_pop(L, 1);                         // drop value */
   lua_pushvalue(L, 2);                   // dup index */
   //lua_pushnumber(L, 7); //always return 7
-  lua_pushstring(L,'ddd');
+  lua_pushstring(L,'hallo uit pascal voor property');
   end;
+
+  if propname='probeer' then
+    begin
+  lua_pop(L, 1);                         // drop value */
+  lua_pushvalue(L, 2);                   // dup index */
+  //lua_pushnumber(L, 7); //always return 7
+  lua_pushstring(L,'hallo uit pascal voor property');
+  end;
+
   Result := 1;
 end;
 
@@ -273,20 +347,26 @@ procedure registerwithlua(L: Plua_State);
 var
  MetaTable,
  MethodTable,
- Methods, Meta : Integer;
+ Methods, Meta, props : Integer;
+ level: Integer;
+ info: Plua_debug;
 begin
   writeln('a');
+
+
 
   //add methods (class methods)
   lua_newtable(L);
   luaL_register(L,PosLuaTMyObject, methodslib);
   methods := lua_gettop(L);
+  stackDump(L); //debug lua c api stack visualizer
 
   writeln('b');
   //add meta methods (object methods)
   luaL_newmetatable(L, PosMetaTaleLuaTMyObject);
   luaL_register(L, Nil, meta_methods);
   meta := lua_gettop(L);
+  stackDump(L); //debug lua c api stack visualizer
 
   writeln('c');
 
@@ -295,20 +375,44 @@ begin
   lua_rawset(L, meta); // hide metatable: metatable.__metatable = methods
 
   writeln('d');
+
+  //TODO: hoe voorkomen dat index_handler ook voor alle __index methods aangeroepen wordt.
   //setters (mixed with metamethods)
+
+  //only set meta methods
+  //lua_pushliteral(L, '__index');
+  //lua_pushvalue(L, meta); // upvalue index 1
+  //lua_rawset(L, meta); // metatable.__index = index_handle
+  //
+
+  //luaL_newmetatable(L, 'properties');
+  //props := lua_gettop(L);
+
+  //set meta methods and properties  move this to create function?  http://loadcode.blogspot.nl/2007/02/wrapping-c-classes-in-lua.html
   lua_pushliteral(L, '__index');
   lua_pushvalue(L, meta); // upvalue index 1
+  //lua_newtable(L);              // table for members you can set
+
 
   //add properties
   lua_pushstring(L, 'lees'); //add name
   lua_pushstring(L,nil); //add userdata (for now nothing)
   lua_settable(L, -3);
   //end add properties
-
+   stackDump(L); //debug lua c api stack visualizer
   lua_pushvalue(L, methods); // upvalue index 2
 
-  lua_pushcclosure(L, index_handler, 2);
-  lua_rawset(L, meta); // metatable.__index = index_handler
+  //luaL_newmetatable(L, 'properties');
+  //props := lua_gettop(L);
+  lua_pushcclosure(L, index_handler, 2); //also gets called for normal methods also?
+   //lua_pushliteral(L, '__index');
+  lua_rawset(L,meta); // metatable.__index = index_handler
+
+  //properties seperated this easy: http://stackoverflow.com/questions/20332518/lua-c-index-is-always-invoked-even-the-tables-field-is-known
+ // lua_pushliteral(L, '__index');
+ // lua_pushvalue(L, meta); // upvalue index 1
+ // lua_rawset(L, meta); // metatable.__index = index_handle
+
 
   writeln('e');
   //getters
@@ -320,13 +424,20 @@ begin
   lua_pushstring(L,nil); //add userdata (for now nothing)
   lua_settable(L, -3);
   //end add properties
+  writeln('newindexstackdump');
+  stackDump(L); //debug lua c api stack visualizer
 
   lua_pushcclosure(L, newindex_handler, 1);
+
   lua_rawset(L, meta);     // metatable.__newindex = newindex_handler
+  stackDump(L); //debug lua c api stack visualizer
 
   lua_pop(L, 1);       // drop metatable
 
   writeln('f');
+
+  stackDump(L);
+
 
 end;
 
