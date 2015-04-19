@@ -26,19 +26,22 @@ end
 print("obj2 tests")
 
 obj2 = tMyObject:new()
+print("obj2 tests begin")
 obj2:settext("test text for object2")
 obj2:showtext()
 obj:showtext()
-print(obj2.lees)
+print("obj2 tests end")
+--print(obj2.lees)
 
-print("lees tests")
-print("===A===")
-print(obj.lees)
-print("===B===")
+--print("lees tests")
+--print("===A===")
+--print(obj.lees)
+--print("===B===")
 obj.lees = "hallo pascal, dit is lua"
-print("===C===")
+--print("===C===")
 obj2.lees = "object 2"
 print(obj2.lees)
 print(obj.lees)
+
 --obj.showtext()
 --obj3:doSomething()

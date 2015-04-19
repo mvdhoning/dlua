@@ -250,6 +250,7 @@ const
     else
     begin
       o := PMyObject(p)^;
+      writeln(o.getLees());
       o.Free(); //free up object
     end;
 
@@ -279,7 +280,7 @@ const
     ud: pointer;
   begin
     writeln('index_handler');
-    stackDump(L);
+    //stackDump(L);
 
     lua_getmetatable(L, -1);
 
@@ -373,7 +374,7 @@ const
        //prop^.func(L,prop^.obj); //call the registered function for this property
       o := PMyObject(prop^.obj)^;
       o.setLees(lua_tostring(L, n));
-
+      writeln('tried to set: ' + lua_tostring(L, n));
 
     end;
     end;
@@ -428,6 +429,24 @@ meta_methods: array [0..4] of luaL_reg = (
   begin
     writeln('lua called create');
     stackDump(L);
+
+       //add methods (class methods)
+    lua_newtable(L);
+    luaL_register(L, pchar(PosLuaTMyObject+pchar(inttostr(objcount))), methodslib);
+    methods := lua_gettop(L);
+    //stackDump(L); //debug lua c api stack visualizer
+
+    writeln('b');
+    //add meta methods (object methods)
+    //lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
+    luaL_newmetatable(L, pchar(PosMetaTaleLuaTMyObject+pchar(inttostr(objcount))));
+    //luaL_newmetatable(L, pchar(PosMetaTaleLuaTMyObject));
+    luaL_register(L, nil, meta_methods);
+    meta := lua_gettop(L);
+
+
+
+    //new(a);
     a := lua_newuserdata(L, SizeOf(TMyObject)); //assign memory for object to lua
     a^ := TMyObject.Create(); //create the object
 
@@ -492,11 +511,11 @@ meta_methods: array [0..4] of luaL_reg = (
 
 
         writeln('a');
-
+    (*
 
     //add methods (class methods)
     lua_newtable(L);
-    luaL_register(L, PosLuaTMyObject, methodslib);
+    luaL_register(L, pchar(PosLuaTMyObject+pchar(inttostr(objcount))), methodslib);
     methods := lua_gettop(L);
     //stackDump(L); //debug lua c api stack visualizer
 
@@ -510,7 +529,7 @@ meta_methods: array [0..4] of luaL_reg = (
     //stackDump(L); //debug lua c api stack visualizer
 
     writeln('c');
-
+     *)
     lua_pushliteral(L, '__metatable');
     lua_pushvalue(L, methods);    // dup methods table
     lua_rawset(L, meta); // hide metatable: metatable.__metatable = methods
@@ -594,6 +613,8 @@ meta_methods: array [0..4] of luaL_reg = (
 
     //lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
     lua_getfield(L, LUA_REGISTRYINDEX, pchar(PosMetaTaleLuaTMyObject+pchar(inttostr(objcount))));
+    writeln('object crated');
+    //stackDump(L); //debug lua c api stack visualizer
     lua_setmetatable(L, -2);
 
     Result:=1;
