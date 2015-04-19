@@ -29,10 +29,16 @@ obj2 = tMyObject:new()
 obj2:settext("test text for object2")
 obj2:showtext()
 obj:showtext()
+print(obj2.lees)
 
 print("lees tests")
+print("===A===")
 print(obj.lees)
-obj.lees = "hallo pascal"
-
+print("===B===")
+obj.lees = "hallo pascal, dit is lua"
+print("===C===")
+obj2.lees = "object 2"
+print(obj2.lees)
+print(obj.lees)
 --obj.showtext()
 --obj3:doSomething()
