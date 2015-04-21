@@ -35,6 +35,8 @@ local function MyClass(init)
   return self
 end
 
+-- start of actual lua script
+
 print("create myclass")
 local i = MyClass(5)
 print(i.foo()) --> 5
