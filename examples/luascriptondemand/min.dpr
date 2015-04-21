@@ -36,52 +36,46 @@ begin
   Result := 0;
 end;
 
+function MyLoader(L: Plua_State):Integer; cdecl;
+var
+  name: string;
+  script: TStringList;
+  s: Integer;
+begin
+  writeln('myloader');
+  //load the first parameter
+  //which is the name of the file, or whatever string identifier for a resource that you passed in with require()
+  name := lua_tostring(L,1);
+
+  //generate our custom dynamic script
+  script:=tstringList.Create;
+  script.Add('--generated test script');
+  script.Add('print("init myloader lua part")');
+  script.Add('function foo()');
+  script.Add('  print("hello from '+name+'")');
+  script.Add('end');
+
+  //load the buffer
+  s:=lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
+  Writeln(inttostr(s)); //debug if load buffer worked
+  script.free;
+  //compile the lua script so that other scripts can see it
+  s:=lua_pcall (L, 0, 0, 0); //add it to the scripts
+  Writeln(inttostr(s)); //debug if pcall worked
+  writeln('end myloader');
+
+  Result := 1;
+
+end;
+
 procedure registerwithlua(L: Plua_State);
 begin
- //register with lua
- 
- //idea on loading generated lua file on demand
-    //url: http://www.gamedev.net/topic/661707-solved-lua-require-other-files-when-loaded-from-memory/
-    //or just add it in front of the normal loaded lua file ...
-    //example code:
-    (*
+  //register with lua
+  luaL_openlibs(L); //make require work
+  luaL_requiref( L, 'mymodule', MyLoader, 1 ); //register mymodule so it can be called with require "mymodule"
+                                               //MyLoader provides the content of mymodule
+  lua_pop(L, 1); //restore lua stack
 
-    int MyLoader(lua_State *L){
-	//load the first parameter
-	//which is the name of the file, or whatever string identifier for a resource that you passed in with require()
-	string filename = lua_tostring(state,1);
-
-	if( exist_in_container(filename)){
-		buffer = get_data_from_container(filename);
-
-		//load the buffer
-		luaL_loadbuffer(L,buffer.data,buffer.size, filename.c_str());
-
-		return 1;
-	}else{
-
-		lua_pushstring(L, "Error: file not found");
-		return 1;
-	}
-}
-
-// when you initialize your lua state...
-
-//locate the package.loaders table
-lua_getfield(state,LUA_GLOBALSINDEX,"package");
-lua_getfield(state,-1,"loaders");
-lua_remove(state,-2);
-
-
-//for convienice, we just replace the first one with our loader
-//package.loaders[1] = MyLoader
-lua_pushinteger(state,1);
-lua_pushcfunction(state,MyLoader);
-lua_rawset(state,-3);
-//balance the stack.
-lua_pop(state,1);
-
-    *)
 end;
 
 var
@@ -127,7 +121,7 @@ begin
   if result>0 then
   begin
     writeln('bad, bad script'); //should provide more usefull info
-    //lua_error(L);
+    lua_error(L);
     Writeln('press [ENTER] key to exit...');
     ReadLn;
     exit;                       //stop the program
