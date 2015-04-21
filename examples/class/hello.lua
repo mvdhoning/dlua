@@ -9,16 +9,12 @@ print(p.naam)
 
 obj = tMyObject:new() --create a new object
 tMyObject.test2(obj,"hoi") --calling an method on the class
+--print(obj.lees)
 obj:test("hello") --this works
---obj.test("hi") --no object is passed
+obj.test("hi") --no object is passed
 
 obj:settext("test text for object1")
 obj:showtext()
-
--- Add method to instance as use it as class
-function obj:doSomething()
-   print("do something")
-end
 
 --obj3 = obj:new()
 
@@ -31,17 +27,15 @@ obj2:settext("test text for object2")
 obj2:showtext()
 obj:showtext()
 print("obj2 tests end")
---print(obj2.lees)
 
---print("lees tests")
---print("===A===")
---print(obj.lees)
---print("===B===")
-obj.lees = "hallo pascal, dit is lua"
---print("===C===")
-obj2.lees = "object 2"
 print(obj2.lees)
+
 print(obj.lees)
 
---obj.showtext()
---obj3:doSomething()
+print("set property test")
+obj.lees = "hallo pascal, dit is lua"
+obj2.lees = "object 2"
+print("end set property test")
+
+print(obj2.lees)
+print(obj.lees)

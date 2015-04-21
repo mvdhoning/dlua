@@ -112,7 +112,7 @@ var methods: integer;
   begin
     Write('Lua: ');
     n := lua_gettop(L);
-    Write('n: ' + IntToStr(n));
+    //Write('n: ' + IntToStr(n));
     for i := 1 to n do
     begin
       if i > 1 then
@@ -147,9 +147,6 @@ const
   PosMetaTaleLuaTMyObject = 'metatables.LuaTMyObject';
   PosLuaTMyObject = 'tMyObject';
 
-//var
-//  methods, metatable: integer;
-
   procedure tmyobject.dosomething(t: string);
   begin
     ftext := t;
@@ -159,7 +156,6 @@ const
   procedure tmyobject.settext(t: string);
   begin
     ftext := t;
-    //writeln('DELPHI: '+ftext); //show debug info
   end;
 
   procedure tmyobject.showtext();
@@ -264,12 +260,9 @@ const
   end;
 
   function get_string(L: Plua_state; v: Pointer): integer; cdecl;
-  var
-    o: TMyObject;
   begin
     writeln('called getstring');
-    o := PMyObject(v)^;
-    lua_pushstring(L, pchar(o.getLees())); //for now just return this string
+    lua_pushstring(L, 'hello from pascal property'); //for now just return this string
     Result := 1;
   end;
 
@@ -278,19 +271,12 @@ const
     propname: PChar;
     prop: PProp_reg;
     ud: pointer;
+       o: TMyObject;
   begin
-    writeln('index_handler');
+    writeln('index_handler (__index)');
     //stackDump(L);
 
     lua_getmetatable(L, -1);
-
-
-      //test to try to get the object
-    if lua_type(L, -1) = LUA_TTABLE then begin
-      writeln('trying to get __self');
-      lua_getfield(L, 2, '__self');
-      ud := luaL_checkudata(L, 2, 'metatables.LuaTMyObject');
-    end;
 
     // stack has userdata, index
     lua_pushvalue(L, 2);                     // dup index
@@ -310,37 +296,20 @@ const
   *)
 
     prop := PProp_reg(lua_touserdata(L, -1));  // member info
-    if prop <> nil then begin
-    writeln('prop info: '+prop^.Name);
-
-    lua_pop(L, 1);// drop lightuserdata
-    lua_pushvalue(L, 2);                   // dup index */
-    if lua_type(L, 1) = LUA_TUSERDATA then
+    if prop <> nil then
     begin
-      //return m->func(L, (void *)((char *)lua_touserdata(L, 1) + m->offset));
-       prop^.func(L,prop^.obj); //call the registered function for this property
-    end;
-    end;
-
-
-     (*
-    if propname = 'lees' then
-    begin
-      lua_pop(L, 1);                         // drop value */
+      writeln('prop info: '+prop^.Name);
+      lua_pop(L, 1); // drop lightuserdata
       lua_pushvalue(L, 2);                   // dup index */
-      //lua_pushnumber(L, 7); //always return 7
-      lua_pushstring(L, 'hallo uit pascal voor property');
-    end;
-     *)
-
-    if propname = 'probeer' then
-    begin
-      lua_pop(L, 1);                         // drop value */
-      lua_pushvalue(L, 2);                   // dup index */
-      //lua_pushnumber(L, 7); //always return 7
-      lua_pushstring(L, 'hallo uit pascal voor property');
+      if lua_type(L, 1) = LUA_TUSERDATA then
+      begin
+        prop^.func(L,prop^.obj); //call the registered function for this property
+        //o := PMyObject(prop^.obj)^;
+        //lua_pushstring(L, pchar(o.getlees()));
+      end;
     end;
 
+    writeln('end indexhandler (__index)');
     Result := 1;
   end;
 
@@ -357,39 +326,25 @@ const
     lua_rawget(L, lua_upvalueindex(1));      // lookup member by name
     propname := lua_tostring(L, 2);
     writeln(propname);
-    //if (!lua_islightuserdata(L, -1))         /* invalid member */
-    //  luaL_error(L, "cannot set member '%s'", lua_tostring(L, 2));
-    //return Xet_call(L);                      /* call set function */
 
     prop := PProp_reg(lua_touserdata(L, -1));  // member info
-    if prop <> nil then begin
-    writeln('prop info: '+prop^.Name);
+    if prop <> nil then
+      begin
+      writeln('prop info: '+prop^.Name);
 
-    lua_pop(L, 1);// drop lightuserdata
-    lua_pushvalue(L, 2);                   // dup index */
-    if lua_type(L, 1) = LUA_TUSERDATA then
-    begin
-           lua_pop(L, 1);                               // drop
-      n := lua_gettop(L);
-       //prop^.func(L,prop^.obj); //call the registered function for this property
-      o := PMyObject(prop^.obj)^;
-      o.setLees(lua_tostring(L, n));
-      writeln('tried to set: ' + lua_tostring(L, n));
-
+      lua_pop(L, 1);// drop lightuserdata
+      lua_pushvalue(L, 2);                   // dup index */
+      if lua_type(L, 1) = LUA_TUSERDATA then
+      begin
+        lua_pop(L, 1);                               // drop
+        n := lua_gettop(L);
+        //prop^.func(L,prop^.obj); //call the registered function for this property
+        //o := PMyObject(prop^.obj)^;
+        //o.setLees(lua_tostring(L, n));
+        writeln('tried to set: ' + lua_tostring(L, n));
+      end;
     end;
-    end;
 
-      (*
-    if propname = 'lees' then
-    begin
-      lua_pop(L, 1);                               // drop
-      n := lua_gettop(L);
-      writeln('tried to set: ' + lua_tostring(L, n));
-
-
-
-    end;
-    *)
     Result := 1;
   end;
 
@@ -409,270 +364,53 @@ meta_methods: array [0..4] of luaL_reg = (
   (Name: '__gc'; func: lua_myobject_delete),
   (Name: nil; func: nil)
   );
+//object properties
   your_getters: array [0..2] of prop_reg = (
    (name:'lees'; func:get_string ),
    (name:'id'; func:get_int ),
-   //(name:'name'; func:get_string; offset:offsetof(your_t,name) ),
-   //(name:'age';  func:get_int;    offset:offsetof(your_t,age)  ),
-   //(name:'x';    func:get_number; offset:offsetof(your_t,x)    ),
-   //(name:'y';    func:get_number; offset:offsetof(your_t,y)    ),
    (name:nil;func:nil)
   );
-
-  var
-    objcount: integer;
 
   function lua_myobject_create(L: Plua_state): integer; cdecl;
   var
     a: PMyObject;
-    i, meta: Integer;
   begin
     writeln('lua called create');
     stackDump(L);
 
-       //add methods (class methods)
-    lua_newtable(L);
-    luaL_register(L, pchar(PosLuaTMyObject+pchar(inttostr(objcount))), methodslib);
-    methods := lua_gettop(L);
-    //stackDump(L); //debug lua c api stack visualizer
-
-    writeln('b');
-    //add meta methods (object methods)
-    //lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
-    luaL_newmetatable(L, pchar(PosMetaTaleLuaTMyObject+pchar(inttostr(objcount))));
-    //luaL_newmetatable(L, pchar(PosMetaTaleLuaTMyObject));
-    luaL_register(L, nil, meta_methods);
-    meta := lua_gettop(L);
-
-
-
-    //new(a);
-    a := lua_newuserdata(L, SizeOf(TMyObject)); //assign memory for object to lua
-    a^ := TMyObject.Create(); //create the object
-
-    a^.Lees:='lees from object';
-    objcount:=objcount+1;
-    writeln('object teller');
-    writeln(inttostr(objcount));
- (*
-    //lua_pushnil(L);
+    a:=lua_newuserdata(L, SizeOf(TMyObject)); //assign memory for object to lua
+    a^:=TMyObject.Create(); //create the object
+    writeln('2');
     lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
-    //meta:=lua_gettop(L);
-    //stackDump(L);
     lua_setmetatable(L, -2);
- *)
-
-   (*
-    meta := 1;
-
-
-    // Do function lookups in metatable
-    //lua_pushvalue(L,1);
-    //lua_setfield(L, 1, '__index');
-
-    writeln('lua add properties');
-
-    //lua_pushliteral(L, '__metatable');
-    //lua_pushvalue(L,0);    // dup methods table
-    //lua_rawset(L, meta); // hide metatable: metatable.__metatable = methods
-    //stackDump(L);
-
-    lua_pushliteral(L, '__index');
-    lua_pushvalue(L, meta); // upvalue index 1
-    stackDump(L);
-
-    //add properties
-    for i:=0 to length(your_getters)-1 do
-    begin
-      if your_getters[i].name<>nil then
-      begin
-        writeln('1add prop: '+your_getters[i].name);
-        lua_pushstring(L, your_getters[i].name); //add name
-        writeln('2add prop: '+your_getters[i].name);
-        lua_pushlightuserdata(L, @your_getters[i]); //add property record for name
-        //lua_pushnil(L);
-        writeln('3add prop: '+your_getters[i].name);
-
-        lua_settable(L, 1);
-        writeln('4add prop: '+your_getters[i].name);
-      end;
-    end;
-    //end add properties
-    writeln('done adding properties');
-    //lua_pushvalue(L, methods); // upvalue index 2
-    lua_pushcclosure(L, index_handler, 2); //also gets called for normal methods also?
-    lua_rawset(L, meta); // metatable.__index = index_handler
-
-    stackDump(L);
-    lua_setmetatable(L, 0);
-    writeln('Done with create');
-    *)
-
-
-
-        writeln('a');
-    (*
-
-    //add methods (class methods)
-    lua_newtable(L);
-    luaL_register(L, pchar(PosLuaTMyObject+pchar(inttostr(objcount))), methodslib);
-    methods := lua_gettop(L);
-    //stackDump(L); //debug lua c api stack visualizer
-
-    writeln('b');
-    //add meta methods (object methods)
-    //lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
-    luaL_newmetatable(L, pchar(PosMetaTaleLuaTMyObject+pchar(inttostr(objcount))));
-    //luaL_newmetatable(L, pchar(PosMetaTaleLuaTMyObject));
-    luaL_register(L, nil, meta_methods);
-    meta := lua_gettop(L);
-    //stackDump(L); //debug lua c api stack visualizer
-
-    writeln('c');
-     *)
-    lua_pushliteral(L, '__metatable');
-    lua_pushvalue(L, methods);    // dup methods table
-    lua_rawset(L, meta); // hide metatable: metatable.__metatable = methods
-
-    writeln('d');
-
-    //TODO: hoe voorkomen dat index_handler ook voor alle __index methods aangeroepen wordt.
-    //setters (mixed with metamethods)
-
-    //only set meta methods
-    //lua_pushliteral(L, '__index');
-    //lua_pushvalue(L, meta); // upvalue index 1
-    //lua_rawset(L, meta); // metatable.__index = index_handle
-
-
-    //luaL_newmetatable(L, 'properties');
-    //props := lua_gettop(L);
-
-    //set meta methods and properties  move this to create function?  http://loadcode.blogspot.nl/2007/02/wrapping-c-classes-in-lua.html
-    lua_pushliteral(L, '__index');
-    lua_pushvalue(L, meta); // upvalue index 1
-
-    writeln('indexstackdump');
-    stackDump(L);
-
-    //add properties
-    for i:=0 to length(your_getters)-1 do
-    begin
-      if your_getters[i].name<>nil then begin
-        writeln('add prop: '+your_getters[i].name);
-        your_getters[i].obj:=a;
-        lua_pushstring(L, your_getters[i].name); //add name
-        lua_pushlightuserdata(L, @your_getters[i]); //add property record for name
-        lua_settable(L, -3);
-      end;
-    end;
-    //end add properties
-
-    lua_pushvalue(L, methods); // upvalue index 2
-    lua_pushcclosure(L, index_handler, 2); //also gets called for normal methods also?
-    lua_rawset(L, meta); // metatable.__index = index_handler
-
-    //properties seperated this easy: http://stackoverflow.com/questions/20332518/lua-c-index-is-always-invoked-even-the-tables-field-is-known
-    // lua_pushliteral(L, '__index');
-    // lua_pushvalue(L, meta); // upvalue index 1
-    // lua_rawset(L, meta); // metatable.__index = index_handle
-
-
-    writeln('e');
-    //getters
-    lua_pushliteral(L, '__newindex');
-    lua_newtable(L);              // table for members you can set
-
-    //add properties
-
-    for i:=0 to length(your_getters)-1 do
-    begin
-      if your_getters[i].name<>nil then begin
-        writeln('add prop: '+your_getters[i].name);
-        your_getters[i].obj:=a;
-        lua_pushstring(L, your_getters[i].name); //add name
-        lua_pushlightuserdata(L, @your_getters[i]); //add property record for name
-        lua_settable(L, -3);
-      end;
-    end;
-
-
-    //end add properties
-    //writeln('newindexstackdump');
-    //stackDump(L); //debug lua c api stack visualizer
-
-    lua_pushcclosure(L, newindex_handler, 1);
-
-    lua_rawset(L, meta);     // metatable.__newindex = newindex_handler
-    //stackDump(L); //debug lua c api stack visualizer
-
-
-    lua_pop(L, 1);       // drop metatable
-
-
-
-    //lua_getfield(L, LUA_REGISTRYINDEX, PosMetaTaleLuaTMyObject);
-    lua_getfield(L, LUA_REGISTRYINDEX, pchar(PosMetaTaleLuaTMyObject+pchar(inttostr(objcount))));
-    writeln('object crated');
-    //stackDump(L); //debug lua c api stack visualizer
-    lua_setmetatable(L, -2);
+    writeln('3');
 
     Result:=1;
   end;
 
-
-
-
-
-
   procedure registerwithlua(L: Plua_State);
   var
-    MetaTable, MethodTable{, Methods}, Meta, props: integer;
-    level,i: integer;
-    info: Plua_debug;
+    Meta: integer;
+    i: integer;
   begin
-    writeln('a');
-      objcount:=0;
-
+    writeln('register TMyObject');
     //add methods (class methods)
     lua_newtable(L);
     luaL_register(L, PosLuaTMyObject, methodslib);
     methods := lua_gettop(L);
-    //stackDump(L); //debug lua c api stack visualizer
 
-    writeln('b');
     //add meta methods (object methods)
     luaL_newmetatable(L, PosMetaTaleLuaTMyObject);
     luaL_register(L, nil, meta_methods);
     meta := lua_gettop(L);
-    //stackDump(L); //debug lua c api stack visualizer
-    (*
-    writeln('c');
 
     lua_pushliteral(L, '__metatable');
     lua_pushvalue(L, methods);    // dup methods table
     lua_rawset(L, meta); // hide metatable: metatable.__metatable = methods
 
-    writeln('d');
-
-    //TODO: hoe voorkomen dat index_handler ook voor alle __index methods aangeroepen wordt.
-    //setters (mixed with metamethods)
-
-    //only set meta methods
-    //lua_pushliteral(L, '__index');
-    //lua_pushvalue(L, meta); // upvalue index 1
-    //lua_rawset(L, meta); // metatable.__index = index_handle
-
-
-    //luaL_newmetatable(L, 'properties');
-    //props := lua_gettop(L);
-
-    //set meta methods and properties  move this to create function?  http://loadcode.blogspot.nl/2007/02/wrapping-c-classes-in-lua.html
+    //getters
     lua_pushliteral(L, '__index');
     lua_pushvalue(L, meta); // upvalue index 1
-
-    writeln('indexstackdump');
-    stackDump(L);
 
     //add properties
     for i:=0 to length(your_getters)-1 do
@@ -690,36 +428,27 @@ meta_methods: array [0..4] of luaL_reg = (
     lua_pushcclosure(L, index_handler, 2); //also gets called for normal methods also?
     lua_rawset(L, meta); // metatable.__index = index_handler
 
-    //properties seperated this easy: http://stackoverflow.com/questions/20332518/lua-c-index-is-always-invoked-even-the-tables-field-is-known
-    // lua_pushliteral(L, '__index');
-    // lua_pushvalue(L, meta); // upvalue index 1
-    // lua_rawset(L, meta); // metatable.__index = index_handle
-
-
-    writeln('e');
-    //getters
+    //setters
     lua_pushliteral(L, '__newindex');
     lua_newtable(L);              // table for members you can set
 
     //add properties
-    lua_pushstring(L, 'lees'); //add name
-    lua_pushstring(L, nil); //add userdata (for now nothing)
-    lua_settable(L, -3);
+    for i:=0 to length(your_getters)-1 do
+    begin
+      if your_getters[i].name<>nil then begin
+        writeln('add prop: '+your_getters[i].name);
+        lua_pushstring(L, your_getters[i].name); //add name
+        lua_pushlightuserdata(L, @your_getters[i]); //add property record for name
+        lua_settable(L, -3);
+      end;
+    end;
     //end add properties
-    //writeln('newindexstackdump');
-    //stackDump(L); //debug lua c api stack visualizer
 
     lua_pushcclosure(L, newindex_handler, 1);
-
     lua_rawset(L, meta);     // metatable.__newindex = newindex_handler
-    //stackDump(L); //debug lua c api stack visualizer
 
     lua_pop(L, 1);       // drop metatable
-
-    writeln('f');
-
-    //stackDump(L);
-    *)
+    writeln('end register TMyObject');
   end;
 
 var

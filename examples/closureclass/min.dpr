@@ -36,34 +36,9 @@ begin
   Result := 0;
 end;
 
-function counter(L: Plua_state): Integer; cdecl;
-var
-  val: double;
-begin
-  writeln('counter called');
-  val := lua_tonumber(L, lua_upvalueindex(1)); //get the current value assigned to the current counter
-  lua_pushnumber(L, val+1);  // new value
-  lua_pushvalue(L, -1);  // duplicate it
-  lua_replace(L, lua_upvalueindex(1));  // update upvalue
-  Result := 1; //not needed?
-end;
-
-function lua_counter_create(L: Plua_state): Integer; cdecl;
-begin
-  writeln('create counter');
-  lua_pushnumber(L, 0); //push 0 onto the stack
-  lua_pushcclosure(L, counter, 1); //assing c function counter with 1 variable containing 0 from stack
-  Result:= 1;
-end;
-
-//TODO: do something more fancy then a counter (e.g. simulate a more complete class)
-
 procedure registerwithlua(L: Plua_State);
 begin
-  //register counter closure
-  writeln('register counter');
-  lua_pushcfunction(L,lua_counter_create);
-  lua_setglobal(l, 'newCounter'); //so we can now call c1 = newCounter() in lua
+ //register with lua
 end;
 
 var
@@ -90,6 +65,7 @@ begin
   registerwithlua(L);
 
   writeln('register print');
+  
   //Register a delphi procedure/funtion for use in Lua
   lua_register(L, 'print', lua_print);
 
@@ -101,7 +77,7 @@ begin
   Script.Free; //clean up
 
   writeln('run lua script');
-
+  
   //Ask Lua to run our little script
   result := 0;
   result := lua_pcall(l, 0, LUA_MULTRET, 0); //TODO: reimplment

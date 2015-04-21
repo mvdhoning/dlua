@@ -1,0 +1,1 @@
+using delphi like properties in lua

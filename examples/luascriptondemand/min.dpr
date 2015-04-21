@@ -36,34 +36,52 @@ begin
   Result := 0;
 end;
 
-function counter(L: Plua_state): Integer; cdecl;
-var
-  val: double;
-begin
-  writeln('counter called');
-  val := lua_tonumber(L, lua_upvalueindex(1)); //get the current value assigned to the current counter
-  lua_pushnumber(L, val+1);  // new value
-  lua_pushvalue(L, -1);  // duplicate it
-  lua_replace(L, lua_upvalueindex(1));  // update upvalue
-  Result := 1; //not needed?
-end;
-
-function lua_counter_create(L: Plua_state): Integer; cdecl;
-begin
-  writeln('create counter');
-  lua_pushnumber(L, 0); //push 0 onto the stack
-  lua_pushcclosure(L, counter, 1); //assing c function counter with 1 variable containing 0 from stack
-  Result:= 1;
-end;
-
-//TODO: do something more fancy then a counter (e.g. simulate a more complete class)
-
 procedure registerwithlua(L: Plua_State);
 begin
-  //register counter closure
-  writeln('register counter');
-  lua_pushcfunction(L,lua_counter_create);
-  lua_setglobal(l, 'newCounter'); //so we can now call c1 = newCounter() in lua
+ //register with lua
+ 
+ //idea on loading generated lua file on demand
+    //url: http://www.gamedev.net/topic/661707-solved-lua-require-other-files-when-loaded-from-memory/
+    //or just add it in front of the normal loaded lua file ...
+    //example code:
+    (*
+
+    int MyLoader(lua_State *L){
+	//load the first parameter
+	//which is the name of the file, or whatever string identifier for a resource that you passed in with require()
+	string filename = lua_tostring(state,1);
+
+	if( exist_in_container(filename)){
+		buffer = get_data_from_container(filename);
+
+		//load the buffer
+		luaL_loadbuffer(L,buffer.data,buffer.size, filename.c_str());
+
+		return 1;
+	}else{
+
+		lua_pushstring(L, "Error: file not found");
+		return 1;
+	}
+}
+
+// when you initialize your lua state...
+
+//locate the package.loaders table
+lua_getfield(state,LUA_GLOBALSINDEX,"package");
+lua_getfield(state,-1,"loaders");
+lua_remove(state,-2);
+
+
+//for convienice, we just replace the first one with our loader
+//package.loaders[1] = MyLoader
+lua_pushinteger(state,1);
+lua_pushcfunction(state,MyLoader);
+lua_rawset(state,-3);
+//balance the stack.
+lua_pop(state,1);
+
+    *)
 end;
 
 var
@@ -90,6 +108,7 @@ begin
   registerwithlua(L);
 
   writeln('register print');
+  
   //Register a delphi procedure/funtion for use in Lua
   lua_register(L, 'print', lua_print);
 
@@ -101,7 +120,7 @@ begin
   Script.Free; //clean up
 
   writeln('run lua script');
-
+  
   //Ask Lua to run our little script
   result := 0;
   result := lua_pcall(l, 0, LUA_MULTRET, 0); //TODO: reimplment

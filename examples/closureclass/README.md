@@ -1,0 +1,1 @@
+using an pascal class from lua with closure instead of table
