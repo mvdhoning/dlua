@@ -16,6 +16,80 @@ uses
   Classes,
   dlua;
 
+procedure printTable(L: Plua_State);
+
+  begin
+    WriteLn('***Table***');
+    lua_pushnil(L);
+
+    while lua_next(L, -2) > 0 do
+    begin
+      if (lua_iscfunction(L, -1) = 1) then
+      begin
+
+        writeln(lua_tostring(L, -2) + ' = C');
+
+      end
+      else
+      if (lua_isnoneornil(L, -1) = True) then //does not work?
+        writeln(lua_tostring(L, -2) + ' = nil')
+      else
+      if (lua_isstring(L, -1)) then
+        writeln(format('%s = %s', [lua_tostring(L, -2), lua_tostring(L, -1)]))
+      else if (lua_isnumber(L, -1) = 1) then
+        writeln(format('%s = %d', [lua_tostring(L, -2), lua_tonumber(L, -1)]))
+      else if (lua_istable(L, -1)) then
+      begin
+        writeln('-->');
+        PrintTable(L);
+        writeln('<--');
+      end;
+      //need more types (e.g. ctypes)
+      //also sometimes crashes...
+      lua_pop(L, 1);
+    end;
+    WriteLn('***END***');
+  end;
+
+  procedure stackDump(L: Plua_State; Level: integer = 0);
+  var
+    i: integer;
+    top: integer;
+    t: integer;
+  begin
+    WriteLn('===StackDump===');
+    top := lua_gettop(L);
+    writeln(IntToStr(top));
+    for i := 0 to top do
+    begin // repeat for each level
+      Write(IntToStr(i) + ': ');
+      t := lua_type(L, i);
+      case (t) of
+
+        LUA_TSTRING:  // strings
+          writeln(lua_tostring(L, i));
+
+        LUA_TNUMBER:  // numbers
+          writeln(lua_tonumber(L, i));
+
+        LUA_TTABLE:
+        begin
+          Write('table ==>');
+          if i = 0 then
+            lua_pushnil(L);
+          printTable(L); //table
+          writeln('<==');
+        end;
+
+        else  // other values
+          Writeln(lua_typename(L, t));
+      end;
+      //write('  ');  // put a separator
+    end;
+    writeln();  // end the listing
+    WriteLn('===End===');
+  end;
+
 //function to print lua data via delphi
 function lua_print(L: Plua_State): Integer; cdecl;
 var
@@ -36,9 +110,52 @@ begin
   Result := 0;
 end;
 
+function my_index(L: Plua_state): integer; cdecl;
+var
+  propname: pchar;
+begin
+  (*
+  Result := 0; //return 0 by default (nothing found)
+  writeln('my index');
+
+  lua_getglobal(L, 'mytable');
+  lua_pushvalue(L, 2);
+  lua_gettable(L, -2);
+  if (lua_isnil(L, -1)=false) then
+        Result := 1; //we have a result so return 1
+  *)
+
+  lua_getmetatable(L, -1);
+  writeln('test') ;
+  // stack has userdata, index
+  lua_pushvalue(L, 2);                     // dup index
+  lua_rawget(L, lua_upvalueindex(1));      // lookup member by name
+  propname := lua_tostring(L, 2);
+  writeln(propname);
+  lua_pushstring(L,lua_touserdata(L, -1));  // member info
+  result:=1;
+end;
+
 procedure registerwithlua(L: Plua_State);
 begin
- //register with lua
+  // create the global 'mytable' table and use a C function as the __index metamethod
+  lua_createtable(L, 0, 2); //table with 2 elements
+
+  //add data
+  lua_pushstring(L, '3'); //value
+  lua_setfield(L, -2, 'three'); //key
+
+  lua_pushstring(L, '4'); //value
+  lua_setfield(L, -2, 'four'); //key
+
+  //add the metatable
+  lua_createtable(L, 0, 1); //with one element __index that points to the my index function
+  lua_pushcfunction(L, my_index);
+  lua_setfield(L, -2, '__index');
+  lua_setmetatable(L, -2);  //make this last table a metatable
+
+  //we are back at the previous table with data
+  lua_setglobal(L, 'mytable'); //give this table a name
 end;
 
 var
