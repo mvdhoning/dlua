@@ -151,6 +151,103 @@ begin
   Result:=1;
 end;
 
+function lua_myclass_loader(L: Plua_State):Integer; cdecl;
+var
+  name: string;
+  script: TStringList;
+  s: Integer;
+begin
+  writeln('lua called myclass loader');
+  //load the first parameter
+  //which is the name of the file, or whatever string identifier for a resource that you passed in with require()
+  name := lua_tostring(L,1);
+
+  //generate our custom dynamic script
+  script:=tstringList.Create;
+  script.Add('--generated script');
+  script.Add('function BaseClass()');
+
+  script.Add('local _members = { }');
+  script.Add('local _pascalclass = nil;');
+
+  script.Add('print("hello from BaseClass constructor")');
+
+  script.Add('return setmetatable( { },');
+  script.Add('{');
+  script.Add('      __newindex = function(self, k, v)');
+  script.Add('        if k=="_member" then');
+  script.Add('              assert(type(v)=="table", "Invalid member")');
+  script.Add('              assert(v.key~=nil, "Invalid member")');
+  script.Add('              _members[v.key]={get=v.get, set=v.set}');
+  script.Add('        elseif _members[k] == nil then');
+  script.Add('              rawset(self,k,v)');
+  script.Add('        else');
+  script.Add('              assert(_members[k].set~=nil,"Attempt to write to a read-only member: ",k)');
+  script.Add('              _members[k].set(v)');
+  script.Add('        end');
+  script.Add('      end,');
+  script.Add('      __index = function (self, k)');
+  script.Add('        if _members[k]~= nil then');
+  script.Add('              if _members[k].get~=nil then');
+  script.Add('                return _members[k]:get()');
+  script.Add('              end');
+  script.Add('        end');
+  script.Add('      end,');
+  script.Add('		__gc = function (self)');
+  script.Add('		  TMyClass_Free(self._pascalclass);');
+  script.Add('		end');
+  script.Add('})');
+  script.Add('end');
+
+  script.Add('-- this will be the class generated from pascal');
+  script.Add('function MyClass(init)');
+  script.Add('local self = BaseClass()');
+
+  //add functions for properties
+  script.Add(' -- add setter/getter for each pascal property');
+  script.Add('local function _privateMyStringSetter(v)');
+  script.Add('  TMyClass_Set_String(self._pascalclass,"MyString",v)');
+  script.Add('end');
+  script.Add('local function _privateMyStringGetter()');
+  script.Add('  return TMyClass_Get_String(self._pascalclass,"MyString")');
+  script.Add('end');
+  script.Add('-- end add setter/getter for each pascal property');
+
+  //add constructor
+  script.Add('print("hello from MyClass constructor")');
+  script.Add('self._pascalclass = TMyClass_Create();');
+
+  //add functions and procedure
+  script.Add('function self.show()');
+  script.Add('  return TMyClass_Show(self._pascalclass);');
+  script.Add('end');
+
+  //properties
+  script.Add('self._member = { key="MyString",');
+  script.Add('                 set=_privateMyStringSetter,');
+  script.Add('                 get=_privateMyStringGetter');
+  script.Add('               }');
+
+  //return the instance
+  script.Add('return self');
+
+  script.Add('end');
+
+  script.Add('--end generated script');
+
+  //load the buffer
+  s:=lual_loadbuffer(L, script.gettext, length(script.gettext), 'TMyClass');
+  Writeln(inttostr(s)); //debug if load buffer worked
+  script.free;
+  //compile the lua script so that other scripts can see it
+  s:=lua_pcall (L, 0, 0, 0); //add it to the scripts
+  Writeln(inttostr(s)); //debug if pcall worked
+  writeln('end myclass loader');
+
+  Result := 1;
+
+end;
+
 //end pascal class for use in lua
 
 //function to print lua data via delphi
@@ -179,6 +276,9 @@ begin
   luaL_openlibs(L); //make some standard lua things work (like require and setmetatable)
 
   //lua class example
+  luaL_requiref( L, 'TMyClass', lua_myclass_loader, 1 ); //register mymodule so it can be called with require "mymodule"
+                                               //MyLoader provides the content of mymodule
+  //constructor and desctuctor
   lua_register(L, 'TMyClass_Create', lua_myclass_create); //constructor
   lua_register(L, 'TMyClass_Free', lua_myclass_free); //constructor
   //functions
