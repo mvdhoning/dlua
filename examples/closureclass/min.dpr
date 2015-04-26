@@ -16,6 +16,133 @@ uses
   Classes,
   dlua;
 
+//pascal class for use in lua
+
+type
+  TMyClass= class
+    private
+      fmystring: String;
+    public
+      function Show(): String;
+      property MyString: String read fmystring write fmystring;
+  end;
+  PMyClass = ^TMyClass;
+
+function TMyClass.Show();
+begin
+  Result := 'Show: '+fmystring;
+end;
+
+//helpers
+
+function lua_myclass_create(L: Plua_State): Integer; cdecl;
+var
+  a: PMyClass;
+begin
+  writeln('lua called create');
+
+  a:=lua_newuserdata(L, SizeOf(TMyClass)); //assign memory for object to lua
+  a^:=TMyClass.Create(); //create the object
+
+  Result:=1;
+end;
+
+function lua_myclass_free(L: Plua_State): Integer; cdecl;
+var
+  p: Pointer;
+  o: TMyClass;
+begin
+  writeln('lua called free');
+
+  p := nil;
+  p := lua_touserdata(L, 1); //get the pascal object
+  if (p = nil) then
+    writeln('no object?')
+  else
+  begin
+    o := PMyClass(p)^;
+    o.Free();
+  end;
+
+  Result:=1;
+end;
+
+function lua_myclass_show(L: Plua_State): Integer; cdecl;
+var
+  p: Pointer;
+  o: TMyClass;
+begin
+  writeln('lua called show');
+
+  p := nil;
+  p := lua_touserdata(L, 1); //get the pascal object
+  if (p = nil) then
+    writeln('no object?')
+  else
+  begin
+    o := PMyClass(p)^;
+    lua_pushstring(L, pchar(o.Show())); //return the result of o.show as string to lua
+  end;
+
+  Result:=1;
+end;
+
+function lua_myclass_get_string(L: Plua_State): Integer; cdecl;
+var
+  p: Pointer;
+  o: TMyClass;
+  f: String;
+begin
+  writeln('lua called get string');
+
+  p := nil;
+  p := lua_touserdata(L, 1); //get the pascal object
+  if (p = nil) then
+    writeln('no object?')
+  else
+  begin
+
+    f := lua_tostring(L, 2); //get the property name
+    writeln('Prop: '+f);
+
+    o := PMyClass(p)^;
+    lua_pushstring(L, pchar(o.MyString)); //return the result of o.show as string to lua
+  end;
+
+  Result:=1;
+end;
+
+function lua_myclass_set_string(L: Plua_State): Integer; cdecl;
+var
+  p: Pointer;
+  o: TMyClass;
+  f: string;
+  v: string;
+begin
+  writeln('lua called set string');
+
+  p := nil;
+  p := lua_touserdata(L, 1); //get the pascal object
+  if (p = nil) then
+    writeln('no object?')
+  else
+  begin
+    f := lua_tostring(L, 2); //get the property name
+    writeln('Prop: '+f);
+
+    v := lua_tostring(L, 3); //get the property value
+    writeln('Value: '+v);
+
+    o := PMyClass(p)^;
+    o.MyString:=v;
+    //lua_pushstring(L, pchar(o.Show())); //return the result of o.show as string to lua
+  end;
+
+  Result:=1;
+end;
+
+//end pascal class for use in lua
+
 //function to print lua data via delphi
 function lua_print(L: Plua_State): Integer; cdecl;
 var
@@ -40,6 +167,16 @@ procedure registerwithlua(L: Plua_State);
 begin
   //register with lua
   luaL_openlibs(L); //make some standard lua things work (like require and setmetatable)
+
+  //lua class example
+  lua_register(L, 'TMyClass_Create', lua_myclass_create); //constructor
+  lua_register(L, 'TMyClass_Free', lua_myclass_free); //constructor
+  //functions
+  lua_register(L, 'TMyClass_Show', lua_myclass_show); //call show of TMyClass
+  //properties
+  lua_register(L, 'TMyClass_Set_String', lua_myclass_set_string); //call string property setter
+  lua_register(L, 'TMyClass_Get_String', lua_myclass_get_string); //call string property getter
+  //end lua class example
 end;
 
 var
