@@ -5,6 +5,7 @@ program min;
 // defines to configure freepascal
 {$IFDEF FPC}
   {$MODE Delphi}
+// {$M+}
 
   {$IFNDEF WINDOWS}
     {$LINKLIB c}
@@ -14,7 +15,8 @@ program min;
 uses
   SysUtils,
   Classes,
-  dlua;
+  dlua,
+  TypInfo;
 
 //pascal class for use in lua
 
@@ -24,6 +26,7 @@ type
       fmystring: String;
     public
       function Show(): String;
+    published
       property MyString: String read fmystring write fmystring;
   end;
   PMyClass = ^TMyClass;
@@ -61,6 +64,7 @@ begin
   else
   begin
     o := PMyClass(p)^;
+    writeln(o.MyString); //show contents of mystring for debug
     o.Free();
   end;
 
@@ -106,7 +110,8 @@ begin
     writeln('Prop: '+f);
 
     o := PMyClass(p)^;
-    lua_pushstring(L, pchar(o.MyString)); //return the result of o.show as string to lua
+    //lua_pushstring(L, pchar(o.MyString)); //return the result of o.show as string to lua
+    lua_pushstring(L, pchar(GetStrProp(o,f)));
   end;
 
   Result:=1;
@@ -118,6 +123,7 @@ var
   o: TMyClass;
   f: string;
   v: string;
+  PI : PPropInfo;
 begin
   writeln('lua called set string');
 
@@ -134,7 +140,11 @@ begin
     writeln('Value: '+v);
 
     o := PMyClass(p)^;
-    o.MyString:=v;
+    //o.MyString:=v;
+
+    //PI:=GetPropInfo(O,'MyString');
+    //Writeln('Get (propinfo)          : ',GetStrProp(o,'MyString'));
+    SetStrProp(o,f,v);
     //lua_pushstring(L, pchar(o.Show())); //return the result of o.show as string to lua
   end;
 

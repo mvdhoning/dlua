@@ -56,6 +56,9 @@ function MyClass(init)
   local function _privateMyStringSetter(v)
     TMyClass_Set_String(self._pascalclass,"MyString",v) --call pascal helper with pascal object property name and value
   end
+  local function _privateMyStringGetter()
+    return TMyClass_Get_String(self._pascalclass,"MyString")
+  end
   -- end add setter for each pascal property
   
   print("hello from MyClass constructor")
@@ -72,13 +75,13 @@ function MyClass(init)
   end
   
   --properties
-  self._member = { key="var",
+  self._member = { key="var", --lua property
                    set=_privateVariableSetter,
-                   get=function() return _privateVariable end } --lua property
-  self._member = { key="MyString",
+                   get=function() return _privateVariable end } 
+  self._member = { key="MyString", --pascal property
                    set=_privateMyStringSetter,
-                   get=function() return TMyClass_Get_String(self._pascalclass,"MyString") end } --pascal property
-  
+                   get=_privateMyStringGetter
+                 }
   --return the instance
   return self
   
@@ -86,6 +89,18 @@ end
 --end generated from pascal
 
 -- start of actual lua script
+
+function MyInheritedClass(init)
+  --private
+  local self = MyClass(init)
+  
+  function self.Test()
+	print("Hello from inherited class");
+  end
+  
+  return self
+end
+
 
 --[[
 print("create myclass")
@@ -110,3 +125,8 @@ ins2 = MyClass(3)
 ins2.MyString = "Hallo"
 print(ins2.MyString)
 print(ins.MyString)
+
+ins3 = MyInheritedClass(5)
+ins3.Test()
+ins3.MyString ="ins3"
+print(ins3.MyString)
