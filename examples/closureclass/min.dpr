@@ -38,7 +38,8 @@ end;
 
 procedure registerwithlua(L: Plua_State);
 begin
- //register with lua
+  //register with lua
+  luaL_openlibs(L); //make some standard lua things work (like require and setmetatable)
 end;
 
 var
@@ -84,7 +85,7 @@ begin
   if result>0 then
   begin
     writeln('bad, bad script'); //should provide more usefull info
-    //lua_error(L);
+    lua_error(L);
     Writeln('press [ENTER] key to exit...');
     ReadLn;
     exit;                       //stop the program
