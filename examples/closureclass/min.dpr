@@ -345,7 +345,7 @@ begin
 
 end;
 
-procedure lua_myclass_addobject(L: Plua_State; O: TMyClass; aname: string);
+procedure lua_myclass_register_addobject(L: Plua_State);
 var
   name: string;
   script: TStringList;
@@ -358,7 +358,7 @@ begin
   script:=tstringList.Create;
   //script.Add('require "MyClass"');
   script.Add('print("add object script")');
-  script.Add('function Add'+aname+'Object(v)');
+  script.Add('function AddObject(v)');
   script.Add('o = T'+name+'()'); //create object
   script.Add('o.changeobject(v)'); //change to pascal object
   script.Add('return o'); //change to pascal object
@@ -372,9 +372,15 @@ begin
   script.free;
   s:=lua_pcall(L, 0, 0,0);     // enable script
   writeln('compile: '+inttostr(s));
+end;
 
-  //call above script to set object in lua
-  lua_getglobal(L,pchar('Add'+aname+'Object')); //function to be called
+procedure lua_myclass_addobject(L: Plua_State; O: TMyClass; aname: string);
+var
+  s: Integer;
+  a: PMyClass;
+begin
+  //call AddObject lua script to set object in lua
+  lua_getglobal(L,pchar('AddObject')); //function to be called
   a:=lua_newuserdata(L, SizeOf(TMyClass)); //pass object to lua as first parameter
   a^:=o;
   s:=lua_pcall(L, 1, LUA_MULTRET,0); // call 'MyClass' with 1 arguments and 1 result
@@ -445,6 +451,7 @@ begin
 
   //register pseudo delphi array (class) in lua
   registerwithlua(L);
+  lua_myclass_register_addobject(L);
 
   test := TMyClass.Create();
   test.MyVar:='this is set in pascal';
