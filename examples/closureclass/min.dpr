@@ -407,8 +407,6 @@ begin
 end;
 
 procedure registerwithlua(L: Plua_State);
-var
-  test: TMyClass;
 begin
   //register with lua
   luaL_openlibs(L); //make some standard lua things work (like require and setmetatable)
@@ -416,15 +414,13 @@ begin
   //lua class example
   luaL_requiref( L, 'MyClass', lua_myclass_loader, 1 ); //Register MyClass so it can be called with require "MyClass"
                                                         //lua_myclass_loader provides the content of MyClass
-  test := TMyClass.Create();
-  test.MyVar:='this is set in pascal';
-  lua_myclass_addobject(L, test, 'test'); //add object test as test in lua
 end;
 
 var
   L: Plua_State = nil; //lua state
   script: tstringlist; //a stringlist to hold the lua script
   result: integer;     //0 if script executes ok
+  test: TMyClass;
 
 begin
   if ParamCount <= 0 then
@@ -450,6 +446,9 @@ begin
   //register pseudo delphi array (class) in lua
   registerwithlua(L);
 
+  test := TMyClass.Create();
+  test.MyVar:='this is set in pascal';
+  lua_myclass_addobject(L, test, 'test'); //add object test as test in lua
 
 
   writeln('load lua script');
@@ -474,6 +473,9 @@ begin
   end;
 
   writeln('done with script');
+
+  writeln('test.MyString: '+test.MyString);
+  //test.free(); //Do not call as this is still registered with lua
 
   //close lua dll
   lua_close(L);

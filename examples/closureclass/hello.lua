@@ -38,3 +38,4 @@ ins3.Merge("hi")
 
 --object set in pascal
 test.Show()
+test.MyString = "text from lua"
