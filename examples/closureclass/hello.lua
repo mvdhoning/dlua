@@ -37,5 +37,4 @@ print(ins3.MyString)
 ins3.Merge("hi")
 
 --object set in pascal
-print(test)
 test.Show()

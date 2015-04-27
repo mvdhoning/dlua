@@ -265,21 +265,15 @@ begin
       if myclass_constructors[i].name<>nil then
       begin
         lua_register(L, pchar(name+'_'+myclass_constructors[i].name), myclass_constructors[i].func); //constructor
-        //script.Add('print(select(1, ...))');
-        //script.Add('if select(1, ...) <> null then');
-        //script.Add('print("heeft data")');
-        //script.Add('self._pascalclass = select(1,...);');
-        //script.Add('else');
         script.Add('self._pascalclass = '+name+'_'+myclass_constructors[i].name+'();');
-        //script.Add('end');
-
       end;
     end;
 
+  //add function to swap lua generated pascal object with object from pascal
   script.Add('function self.changeobject(v)');
   script.Add('  print("changeobject called")');
-        script.Add('  print(v)');
-        script.Add('  self._pascalclass = v');
+  script.Add('  TMyClass_Free(self._pascalclass)'); //free current pascal object
+  script.Add('  self._pascalclass = v'); //set object from pascal
   script.Add('end');
 
   //add functions and procedure (no need to also use class name here)
@@ -355,15 +349,9 @@ procedure lua_myclass_addobject(L: Plua_State; O: TMyClass; aname: string);
 var
   name: string;
   script: TStringList;
-  s,i: Integer;
-  z: string;
+  s: Integer;
   a: PMyClass;
-  //mo: TMyClass;
-
 begin
-
-  //mo:= TMyClass.Create();
-  //mo.MyVar:='hoi';
   name:='MyClass';
 
   //generate our custom dynamic script
@@ -371,8 +359,9 @@ begin
   //script.Add('require "MyClass"');
   script.Add('print("add object script")');
   script.Add('function Add'+aname+'Object(v)');
-  script.Add(aname+' = T'+name+'()'); //create object
-  script.Add(aname+'.changeobject(v)'); //change to pascal object
+  script.Add('o = T'+name+'()'); //create object
+  script.Add('o.changeobject(v)'); //change to pascal object
+  script.Add('return o'); //change to pascal object
   script.Add('end');
 
   //script.SaveToFile('addobject.lua'); //uncomment to save generated script
@@ -384,29 +373,15 @@ begin
   s:=lua_pcall(L, 0, 0,0);     // enable script
   writeln('compile: '+inttostr(s));
 
-  //a:=lua_newuserdata(L, SizeOf(TMyClass));
-  //a:=o;
-
+  //call above script to set object in lua
   lua_getglobal(L,pchar('Add'+aname+'Object')); //function to be called
-  //lua_pushlightuserdata(L, MO); //pass object to lua as first parameter
-  a:=lua_newuserdata(L, SizeOf(TMyClass));
+  a:=lua_newuserdata(L, SizeOf(TMyClass)); //pass object to lua as first parameter
   a^:=o;
+  s:=lua_pcall(L, 1, LUA_MULTRET,0); // call 'MyClass' with 1 arguments and 1 result
+  lua_setglobal(L,pchar(aname)); // set global 'varname'
 
-  s:=lua_pcall(L, 1, LUA_MULTRET,0);     // call 'MyClass' with 1 arguments and 1 result
-  //lua_setfield(L, LUA_GLOBALSINDEX, pchar(aname)); // set global 'varname'
-  //z := lua_tostring(L, -1);
-  //writeln('z: '+z) ;
-  //lua_pop(L, 1);  /* pop returned value */
-
-
-  //lua_setglobal(L,pchar(aname)); // set global 'varname'
-
-  //compile the lua script so that other scripts can see it
-  //lua_pushlightuserdata(L, O); //pass object to lua
-  //s:=lua_pcall (L, 0, 0, 0); //add it to the scripts
   Writeln(inttostr(s)); //debug if pcall worked
   writeln('end add object');
-  //mo.MyVar:='2hoi2';
 end;
 
 //end pascal class for use in lua
@@ -443,7 +418,7 @@ begin
                                                         //lua_myclass_loader provides the content of MyClass
   test := TMyClass.Create();
   test.MyVar:='this is set in pascal';
-  lua_myclass_addobject(L, test, 'test');
+  lua_myclass_addobject(L, test, 'test'); //add object test as test in lua
 end;
 
 var
