@@ -9,14 +9,14 @@ function MyInheritedClass(init)
   function self.Test()
 	print("Greetings from inherited class");
   end
-  
+
   return self
 end
 
 print("MyClass Tests")
 ins = TMyClass()
-
-print(ins.show()) --> Show: 
+ins.MyVar = "test"
+print(ins.Show()) --> Show: test 
 
 ins.MyString = "Hoi"
 print(ins.MyString)
@@ -27,7 +27,9 @@ print(ins2.MyString)
 print(ins.MyString)
 
 ins3 = MyInheritedClass(5)
-ins3.show()
+ins3.Show()
 ins3.Test()
 ins3.MyString ="ins3"
 print(ins3.MyString)
+
+ins3.Merge("hi")

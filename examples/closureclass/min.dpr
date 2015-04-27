@@ -5,7 +5,7 @@ program min;
 // defines to configure freepascal
 {$IFDEF FPC}
   {$MODE Delphi}
-// {$M+}
+ {$M+}
 
   {$IFNDEF WINDOWS}
     {$LINKLIB c}
@@ -24,16 +24,31 @@ type
   TMyClass= class
     private
       fmystring: String;
+      fmyvar: String;
     public
-      function Show(): String;
+      //function Show(): String;
     published
+      function Show(): String;
+      function Merge(avalue: string): String;
       property MyString: String read fmystring write fmystring;
+      property MyVar: String read fmyvar write fmyvar;
   end;
   PMyClass = ^TMyClass;
 
-function TMyClass.Show();
+  prop_reg = record
+    Name: PChar;
+    funcget: lua_CFunction;
+    funcset: lua_CFunction;
+  end;
+
+function TMyClass.Show(): String;
 begin
-  Result := 'Show: '+fmystring;
+  Result := 'Show: '+fmyvar;
+end;
+
+function TMyClass.Merge(avalue: string): String;
+begin
+  Result := 'Merge: '+avalue;
 end;
 
 //helpers
@@ -41,31 +56,11 @@ end;
 function lua_myclass_create(L: Plua_State): Integer; cdecl;
 var
   a: PMyClass;
-  PI : PTypeInfo;
-  PT : PTypeData;
-  PP : PPropList;
-  i: integer;
 begin
   writeln('lua called create');
 
   a:=lua_newuserdata(L, SizeOf(TMyClass)); //assign memory for object to lua
   a^:=TMyClass.Create(); //create the object
-
-  PI:=a^.ClassInfo;
-  PT:=GetTypeData(PI);
-  Writeln('Property Count : ',PT^.PropCount);
-  GetMem (PP,PT^.PropCount*SizeOf(Pointer));
-  GetPropInfos(PI,PP);
-  For I:=0 to PT^.PropCount-1 do
-    begin
-    With PP^[i]^ do
-      begin
-      Writeln('Property : ',name);
-      //writeln('  Type: ',TypeNames[typinfo.PropType(O,Name)]);
-      writeln('    Type : ',typinfo.PropType(A^,Name));
-      end;
-    end;
-  FreeMem(PP);
 
   Result:=1;
 end;
@@ -74,6 +69,7 @@ function lua_myclass_free(L: Plua_State): Integer; cdecl;
 var
   p: Pointer;
   o: TMyClass;
+
 begin
   writeln('lua called free');
 
@@ -91,21 +87,43 @@ begin
   Result:=1;
 end;
 
-function lua_myclass_show(L: Plua_State): Integer; cdecl;
+function lua_myclass_string_function(L: Plua_State): Integer; cdecl;
 var
   p: Pointer;
   o: TMyClass;
+  f,r,v: string;
+  n: Integer;
 begin
-  writeln('lua called show');
+  writeln('lua called method');
+
+  n:= lua_gettop(L);
+  writeln('n: '+inttostr(n));
 
   p := nil;
-  p := lua_touserdata(L, 1); //get the pascal object
+  p := lua_touserdata(L, 1); //get a pointer to the pascal object
   if (p = nil) then
     writeln('no object?')
   else
   begin
-    o := PMyClass(p)^;
-    lua_pushstring(L, pchar(o.Show())); //return the result of o.show as string to lua
+    o := PMyClass(p)^; //get the object
+
+    f := lua_tostring(L, 2); //get the method name
+    writeln('Method: '+f);
+
+    //For this 'shared' wrapper function we need to call the right function in the object by name
+    if f = 'Show' then
+      begin
+       r:=o.Show();
+      end
+    else if f = 'Merge' then
+       begin
+         v := lua_tostring(L, 3); //get the property value
+         writeln('Param1: '+v);
+         r:=o.Merge(v);
+       end;
+
+    writeln('Result: '+r);
+    lua_pushstring(L, pchar(r)); //return the result of o.show as string to lua
   end;
 
   Result:=1;
@@ -120,7 +138,7 @@ begin
   writeln('lua called get string');
 
   p := nil;
-  p := lua_touserdata(L, 1); //get the pascal object
+  p := lua_touserdata(L, 1); //get a pointer to the pascal object
   if (p = nil) then
     writeln('no object?')
   else
@@ -129,9 +147,8 @@ begin
     f := lua_tostring(L, 2); //get the property name
     writeln('Prop: '+f);
 
-    o := PMyClass(p)^;
-    //lua_pushstring(L, pchar(o.MyString)); //return the result of o.show as string to lua
-    lua_pushstring(L, pchar(GetStrProp(o,f)));
+    o := PMyClass(p)^; //get the object
+    lua_pushstring(L, pchar(GetStrProp(o,f))); //get the value from propertyname at object
   end;
 
   Result:=1;
@@ -143,12 +160,11 @@ var
   o: TMyClass;
   f: string;
   v: string;
-  PI : PPropInfo;
 begin
   writeln('lua called set string');
 
   p := nil;
-  p := lua_touserdata(L, 1); //get the pascal object
+  p := lua_touserdata(L, 1); //get a pointer to the pascal object
   if (p = nil) then
     writeln('no object?')
   else
@@ -159,31 +175,46 @@ begin
     v := lua_tostring(L, 3); //get the property value
     writeln('Value: '+v);
 
-    o := PMyClass(p)^;
-    //o.MyString:=v;
+    o := PMyClass(p)^; //get the object
+    SetStrProp(o,f,v); //set the value for property name in object
 
-    //PI:=GetPropInfo(O,'MyString');
-    //Writeln('Get (propinfo)          : ',GetStrProp(o,'MyString'));
-    SetStrProp(o,f,v);
-    //lua_pushstring(L, pchar(o.Show())); //return the result of o.show as string to lua
   end;
 
   Result:=1;
 end;
 
+var
+  //object properties
+  myclass_properties: array [0..2] of prop_reg = (
+   (name:'MyString'; funcget:lua_myclass_get_string; funcset:lua_myclass_set_string),
+   (name:'MyVar'; funcget:lua_myclass_get_string; funcset:lua_myclass_set_string),
+   (name:nil;funcget:nil;funcset:nil)
+  );
+  myclass_methods: array [0..2] of luaL_reg = (
+  (Name: 'Show'; func: lua_myclass_string_function),
+  (Name: 'Merge'; func: lua_myclass_string_function),
+  (Name: nil; func: nil)
+  );
+  myclass_constructors: array [0..1] of luaL_reg = (
+  (Name: 'Create'; func: lua_myclass_create),
+  (Name: nil; func: nil)
+  );
+  myclass_destructors: array [0..1] of luaL_reg = (
+  (Name: 'Free'; func: lua_myclass_free),
+  (Name: nil; func: nil)
+  );
+
 function lua_myclass_loader(L: Plua_State):Integer; cdecl;
 var
   name: string;
   script: TStringList;
-  s: Integer;
-  propname1: string;
+  s,i: Integer;
 begin
   writeln('lua called myclass loader');
   //load the first parameter
   //which is the name of the file, or whatever string identifier for a resource that you passed in with require()
   name := 'T'+lua_tostring(L,1);
   writeln('name: '+name);
-  propname1:= 'MyString'; //published property name
 
   //generate our custom dynamic script
   script:=tstringList.Create;
@@ -222,34 +253,59 @@ begin
   script.Add('})');
   script.Add('end');
 
+  //class name
   script.Add('-- this will be the class generated from pascal');
-  script.Add('function '+name+'()');
+  script.Add('function '+name+'(...)');
   script.Add('local self = BaseClass()');
 
-  //add functions for properties
-  script.Add(' -- add setter/getter for each pascal property');
-  script.Add('local function _private'+propname1+'Setter(v)');
-  script.Add('  '+name+'_Set_String(self._pascalclass,"'+propname1+'",v)');
-  script.Add('end');
-  script.Add('local function _private'+propname1+'Getter()');
-  script.Add('  return '+name+'_Get_String(self._pascalclass,"'+propname1+'")');
-  script.Add('end');
-  script.Add('-- end add setter/getter for each pascal property');
-
-  //add constructor
+  //add call pascal constructors (only one supported for now)
   script.Add('print("hello from '+name+' constructor")');
-  script.Add('self._pascalclass = '+name+'_Create();');
+  for i:=0 to length(myclass_constructors)-1 do
+    begin
+      if myclass_constructors[i].name<>nil then
+      begin
+        lua_register(L, pchar(name+'_'+myclass_constructors[i].name), myclass_constructors[i].func); //constructor
+        script.Add('self._pascalclass = '+name+'_'+myclass_constructors[i].name+'(...);');
+      end;
+    end;
 
-  //add functions and procedure
-  script.Add('function self.show()');
-  script.Add('  return '+name+'_Show(self._pascalclass);');
-  script.Add('end');
+  //add functions and procedure (no need to also use class name here)
+  for i:=0 to length(myclass_methods)-1 do
+    begin
+      if myclass_methods[i].name<>nil then
+      begin
+        lua_register(L, pchar(name+'_'+myclass_methods[i].name), myclass_methods[i].func);
+        script.Add('function self.'+myclass_methods[i].name+'(...)');
+        script.Add('  return '+name+'_'+myclass_methods[i].name+'(self._pascalclass,"'+myclass_methods[i].name+'",...);');
+        script.Add('end');
+      end;
+    end;
 
-  //properties
-  script.Add('self._member = { key="'+propname1+'",');
-  script.Add('                 set=_private'+propname1+'Setter,');
-  script.Add('                 get=_private'+propname1+'Getter');
-  script.Add('               }');
+  //add functions for properties
+  for i:=0 to length(myclass_properties)-1 do
+    begin
+      if myclass_properties[i].name<>nil then
+      begin
+        lua_register(L, pchar(name+'_Set_'+myclass_properties[i].name), myclass_properties[i].funcset); //call string property setter
+        lua_register(L, pchar(name+'_Get_'+myclass_properties[i].name), myclass_properties[i].funcget); //call string property getter
+
+        script.Add(' -- add setter/getter for each pascal property');
+        script.Add('local function _private'+myclass_properties[i].name+'Setter(v)');
+        script.Add('  '+name+'_Set_'+myclass_properties[i].name+'(self._pascalclass,"'+myclass_properties[i].name+'",v)');
+        script.Add('end');
+        script.Add('local function _private'+myclass_properties[i].name+'Getter()');
+        script.Add('  return '+name+'_Get_'+myclass_properties[i].name+'(self._pascalclass,"'+myclass_properties[i].name+'")');
+        script.Add('end');
+        script.Add('-- end add setter/getter for each pascal property');
+
+        //properties
+        script.Add('self._member = { key="'+myclass_properties[i].name+'",');
+        script.Add('                 set=_private'+myclass_properties[i].name+'Setter,');
+        script.Add('                 get=_private'+myclass_properties[i].name+'Getter');
+        script.Add('               }');
+
+      end;
+    end;
 
   //return the instance
   script.Add('return self');
@@ -257,6 +313,15 @@ begin
   script.Add('end');
 
   script.Add('--end generated script');
+
+  //add pascal destructor (only one supported and needs to be called Free)
+  for i:=0 to length(myclass_destructors)-1 do
+    begin
+      if myclass_destructors[i].name<>nil then
+      begin
+        lua_register(L, pchar(name+'_'+myclass_destructors[i].name), myclass_destructors[i].func); //constructor
+      end;
+    end;
 
   //script.SaveToFile('generated.lua'); //uncomment to save generated script
 
@@ -296,25 +361,13 @@ begin
 end;
 
 procedure registerwithlua(L: Plua_State);
-var
-  name: string;
 begin
-  name:='MyClass';
   //register with lua
   luaL_openlibs(L); //make some standard lua things work (like require and setmetatable)
 
   //lua class example
-  luaL_requiref( L, pchar(name), lua_myclass_loader, 1 ); //register mymodule so it can be called with require "mymodule"
-                                               //MyLoader provides the content of mymodule
-  //constructor and desctuctor
-  lua_register(L, pchar('T'+name+'_Create'), lua_myclass_create); //constructor
-  lua_register(L, pchar('T'+name+'_Free'), lua_myclass_free); //constructor
-  //functions
-  lua_register(L, pchar('T'+name+'_Show'), lua_myclass_show); //call show of TMyClass
-  //properties
-  lua_register(L, pchar('T'+name+'_Set_String'), lua_myclass_set_string); //call string property setter
-  lua_register(L, pchar('T'+name+'_Get_String'), lua_myclass_get_string); //call string property getter
-  //end lua class example
+  luaL_requiref( L, 'MyClass', lua_myclass_loader, 1 ); //Register MyClass so it can be called with require "MyClass"
+                                                        //lua_myclass_loader provides the content of MyClass
 end;
 
 var
