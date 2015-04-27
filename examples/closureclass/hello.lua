@@ -2,6 +2,8 @@ require "MyClass"
 
 print("hello world, from Lua!\n")
 
+
+
 function MyInheritedClass(init)
   --private
   local self = TMyClass(init)
@@ -33,3 +35,7 @@ ins3.MyString ="ins3"
 print(ins3.MyString)
 
 ins3.Merge("hi")
+
+--object set in pascal
+print(test)
+test.Show()
