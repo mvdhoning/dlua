@@ -426,7 +426,7 @@ var
   L: Plua_State = nil; //lua state
   script: tstringlist; //a stringlist to hold the lua script
   result: integer;     //0 if script executes ok
-  test: TMyClass;
+  test, mytest: TMyClass;
 
 begin
   if ParamCount <= 0 then
@@ -457,6 +457,9 @@ begin
   test.MyVar:='this is set in pascal';
   lua_myclass_addobject(L, test, 'test'); //add object test as test in lua
 
+  mytest := TMyClass.Create();
+  mytest.MyVar:='this is mytest';
+  lua_myclass_addobject(L, mytest, 'mytest'); //add object test as test in lua
 
   writeln('load lua script');
   //Load a lua script from a buffer
@@ -485,7 +488,7 @@ begin
   //test.free(); //Do not call as this is still registered with lua
 
   //close lua dll
-  lua_close(L);
+  lua_close(L); //this will also unload registered pascal objects
   UnLoadLua;
 
   Writeln('press [ENTER] key to exit...');
