@@ -40,6 +40,7 @@ function MyLoader(L: Plua_State):Integer; cdecl;
 var
   name: string;
   script: TStringList;
+  pscript: pchar;
   s: Integer;
 begin
   writeln('myloader');
@@ -56,9 +57,11 @@ begin
   script.Add('end');
 
   //load the buffer
-  s:=lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
+  pscript:=script.gettext;
+  s:=lual_loadbuffer(L, pscript, length(pscript), 'myluascript');
   Writeln(inttostr(s)); //debug if load buffer worked
-  script.free;
+  StrDispose(pscript);
+  freeAndNil(script);
   //compile the lua script so that other scripts can see it
   s:=lua_pcall (L, 0, 0, 0); //add it to the scripts
   Writeln(inttostr(s)); //debug if pcall worked
@@ -82,8 +85,20 @@ var
   L: Plua_State = nil; //lua state
   script: tstringlist; //a stringlist to hold the lua script
   result: integer;     //0 if script executes ok
+  pscript: pchar;
 
 begin
+
+  {$IFDEF DEBUG}
+  // Assuming your build mode sets -dDEBUG in Project Options/Other when defining -gh
+  // This avoids interference when running a production/default build without -gh
+
+  // Set up -gh output for the Leakview package:
+  if FileExists('heap.trc') then
+     DeleteFile('heap.trc');
+  SetHeapTraceOutput('heap.trc');
+  {$ENDIF DEBUG}
+
   if ParamCount <= 0 then
   begin
     WriteLn('Usage: min.exe filename');
@@ -110,8 +125,10 @@ begin
   //Load a lua script from a buffer
   script:=tstringList.Create;
   script.LoadFromFile(PChar(ParamStr(1)));
-  lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
-  Script.Free; //clean up
+  pscript:=script.gettext;
+  lual_loadbuffer(L, pscript, length(pscript), 'myluascript');
+  StrDispose(pscript); //clean up
+  freeAndNil(script); //clean up
 
   writeln('run lua script');
   

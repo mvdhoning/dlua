@@ -455,8 +455,20 @@ var
   L: Plua_State = nil; //lua state
   script: TStringList; //a stringlist to hold the lua script
   Result: integer;     //0 if script executes ok
+  pscript: pchar;
 
 begin
+
+  {$IFDEF DEBUG}
+  // Assuming your build mode sets -dDEBUG in Project Options/Other when defining -gh
+  // This avoids interference when running a production/default build without -gh
+
+  // Set up -gh output for the Leakview package:
+  if FileExists('heap.trc') then
+     DeleteFile('heap.trc');
+  SetHeapTraceOutput('heap.trc');
+  {$ENDIF DEBUG}
+
   if ParamCount <= 0 then
   begin
     WriteLn('Usage: min.exe filename');
@@ -482,7 +494,9 @@ begin
   //Load a lua script from a buffer
   script := TStringList.Create;
   script.LoadFromFile(PChar(ParamStr(1)));
-  lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
+  pscript:=script.gettext;
+  lual_loadbuffer(L, pscript, length(pscript), 'myluascript');
+  StrDispose(pscript); //clean up
   Script.Free; //clean up
 
   writeln('run lua script');

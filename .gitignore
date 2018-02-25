@@ -10,6 +10,7 @@ lib/
 
 #ignore debug information files
 *.dbg
+*.trc
 
 #exclude executable output in windows
 *.exe

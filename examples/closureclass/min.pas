@@ -208,6 +208,7 @@ function lua_myclass_loader(L: Plua_State):Integer; cdecl;
 var
   name: string;
   script: TStringList;
+  pscript: pchar;
   s,i: Integer;
 begin
   writeln('lua called myclass loader');
@@ -333,9 +334,11 @@ begin
   //script.SaveToFile('generated.lua'); //uncomment to save generated script
 
   //load the buffer
-  s:=lual_loadbuffer(L, script.gettext, length(script.gettext), pchar(name));
+  pscript:=script.gettext;
+  s:=lual_loadbuffer(L, pscript, length(pscript), pchar(name));
   Writeln(inttostr(s)); //debug if load buffer worked
-  script.free;
+  StrDispose(pscript); //clean up
+  freeAndNil(script); //clean up
   //compile the lua script so that other scripts can see it
   s:=lua_pcall (L, 0, 0, 0); //add it to the scripts
   Writeln(inttostr(s)); //debug if pcall worked
@@ -349,6 +352,7 @@ procedure lua_myclass_register_addobject(L: Plua_State);
 var
   name: string;
   script: TStringList;
+  pscript: pchar;
   s: Integer;
   a: PMyClass;
 begin
@@ -367,9 +371,11 @@ begin
   //script.SaveToFile('addobject.lua'); //uncomment to save generated script
 
   //load the buffer
-  s:=lual_loadbuffer(L, script.gettext, length(script.gettext), script.gettext);
+  pscript:=script.gettext;
+  s:=lual_loadbuffer(L, pscript, length(pscript), pscript);
   Writeln('load:'+inttostr(s)); //debug if load buffer worked
-  script.free;
+  StrDispose(pscript); //clean up
+  freeAndNil(script); //clean up
   s:=lua_pcall(L, 0, 0,0);     // enable script
   writeln('compile: '+inttostr(s));
 end;
@@ -427,8 +433,20 @@ var
   script: tstringlist; //a stringlist to hold the lua script
   result: integer;     //0 if script executes ok
   test, mytest: TMyClass;
+  pscript: pchar;
 
 begin
+
+  {$IFDEF DEBUG}
+  // Assuming your build mode sets -dDEBUG in Project Options/Other when defining -gh
+  // This avoids interference when running a production/default build without -gh
+
+  // Set up -gh output for the Leakview package:
+  if FileExists('heap.trc') then
+     DeleteFile('heap.trc');
+  SetHeapTraceOutput('heap.trc');
+  {$ENDIF DEBUG}
+
   if ParamCount <= 0 then
   begin
     WriteLn('Usage: min.exe filename');
@@ -465,8 +483,10 @@ begin
   //Load a lua script from a buffer
   script:=tstringList.Create;
   script.LoadFromFile(PChar(ParamStr(1)));
-  lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
-  Script.Free; //clean up
+  pscript:=script.gettext;
+  lual_loadbuffer(L, pscript, length(pscript), 'myluascript');
+  StrDispose(pscript); //clean up
+  freeAndNil(script); //clean up
 
   writeln('run lua script');
   

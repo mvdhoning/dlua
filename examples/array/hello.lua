@@ -10,3 +10,4 @@ end
 print ("print element 10 from array")
 print (array.get(testa, 10))  
 print (1/10)
+array.free(testa)

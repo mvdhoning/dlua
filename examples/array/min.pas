@@ -101,13 +101,24 @@ begin
   result:=1;
 end;
 
+//retuns the size of the array to lua
+function lua_freearray(L: Plua_State): Integer; cdecl;
+var
+  a: TNumArray;
+begin
+  a:=PNumArray(lua_touserdata(L, 1))^;
+  freeAndNil(a);
+  result:=1;
+end;
+
 //structure for delphi array (class) to lua
 const
-  arraylib: array [0..4] of luaL_reg = (
+  arraylib: array [0..5] of luaL_reg = (
    (name:'new';func:lua_newarray),
    (name:'set';func:lua_setarray),
    (name:'get';func:lua_getarray),
    (name:'size';func:lua_getsize),
+   (name:'free';func:lua_freearray),
    (name:nil;func:nil)
    );
 
@@ -127,8 +138,19 @@ var
   L: Plua_State = nil; //lua state
   script: tstringlist; //a stringlist to hold the lua script
   result: integer;     //0 if script executes ok
-
+  pscript: pchar;
 begin
+
+  {$IFDEF DEBUG}
+  // Assuming your build mode sets -dDEBUG in Project Options/Other when defining -gh
+  // This avoids interference when running a production/default build without -gh
+
+  // Set up -gh output for the Leakview package:
+  if FileExists('heap.trc') then
+     DeleteFile('heap.trc');
+  SetHeapTraceOutput('heap.trc');
+  {$ENDIF DEBUG}
+
   if ParamCount <= 0 then
   begin
     WriteLn('Usage: min.exe filename');
@@ -156,8 +178,10 @@ begin
   //Load a lua script from a buffer
   script:=tstringList.Create;
   script.LoadFromFile(PChar(ParamStr(1)));
-  lual_loadbuffer(L, script.gettext, length(script.gettext), 'myluascript');
-  Script.Free; //clean up
+  pscript:=script.GetText;
+  lual_loadbuffer(L, pscript, length(pscript), 'myluascript');
+  StrDispose(pscript); //clean up pchar passed to lua
+  freeAndNil(script); //clean up
 
   WriteLn('6');
 
