@@ -191,7 +191,7 @@ var
   lua_xmove: procedure(from: Plua_State; to_: Plua_State; n: integer); cdecl;
 
   //access functions (stack -> C)
-  lua_isnumber: function(L: Plua_State; idx: integer): integer; cdecl;
+  lua_isnumber: function(L: Plua_State; idx: integer): boolean; cdecl;
   lua_isstring: function(L: Plua_State; idx: integer): boolean; cdecl;
   lua_iscfunction: function(L: Plua_State; idx: integer): integer; cdecl;
   lua_isinteger: function(L: Plua_State; idx: integer): integer; cdecl;
@@ -201,7 +201,7 @@ var
 
   lua_tonumberx: function(L: Plua_State; idx: integer; isnum: PInteger): lua_Number; cdecl;
   lua_tointegerx: function(L: Plua_State; idx: integer; isnum: Pinteger): lua_Integer; cdecl;
-  lua_toboolean: function(L: Plua_State; idx: integer): integer; cdecl;
+  lua_toboolean: function(L: Plua_State; idx: integer): boolean; cdecl;
   lua_tolstring: function(L: Plua_State; idx: integer; len: psize_t): PChar; cdecl;
   lua_rawlen: function(L: Plua_State; idx: integer): size_t; cdecl;
   lua_tocfunction: function(L: Plua_State; idx: integer): lua_CFunction; cdecl;
@@ -223,7 +223,7 @@ var
   lua_pushvfstring: function(L: Plua_State; const fmt: PChar; argp: pointer): PChar; cdecl;
   lua_pushfstring: function(L: Plua_State; const fmt: PChar; arg: array of Pointer): PChar; cdecl;
   lua_pushcclosure: procedure(L: Plua_State; fn: lua_CFunction; n: integer); cdecl;
-  lua_pushboolean: procedure(L: Plua_State; b: integer); cdecl;
+  lua_pushboolean: procedure(L: Plua_State; b: boolean); cdecl;
   lua_pushlightuserdata: procedure(L: Plua_State; p: pointer); cdecl;
   lua_pushthread: function(L: Plua_State): integer; cdecl;
 
