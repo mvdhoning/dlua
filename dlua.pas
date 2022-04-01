@@ -23,7 +23,7 @@ const
 {$IFDEF LINUX}
   LUA_NAME = 'liblua.so.5.3.0';
 {$ELSE}
-  LUA_NAME = 'lua5.3.0.dll';
+  LUA_NAME = 'lua53.dll';
 
 {$ENDIF}
 
